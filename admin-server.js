@@ -102,4 +102,10 @@ app.post('/admin/users/:id/toggle', verifySecret, async (req,res)=>{
   }catch(err){ console.error(err); return res.status(500).json({ error: String(err) }); }
 });
 
-app.listen(PORT, ()=> console.log(`Admin server listening on http://localhost:${PORT}`));
+// Railway requiere escuchar en 0.0.0.0 para aceptar conexiones externas
+const HOST = process.env.HOST || '0.0.0.0';
+app.listen(PORT, HOST, ()=> {
+  console.log(`Admin server listening on http://${HOST}:${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Supabase URL: ${SUPABASE_URL}`);
+});
