@@ -1,0 +1,188 @@
+/* -----------------------------------------
+   Tema base: oscuro, minimalista y futurista
+   ----------------------------------------- */
+:root{
+  --bg-1: #05060a;            /* fondo principal */
+  --bg-2: #0b0e13;            /* degradado fondo */
+  --card: rgba(255,255,255,0.04);
+  --glass-border: rgba(255,255,255,0.06);
+  --muted: #9aa7b8;
+  --text: #e6eef6;
+  --accent: #E50914;         /* rojo Netflix */
+  --accent-2: #FF3D3D;
+  --accent-rgb: 229,9,20;
+  --radius: 16px;
+  --max-width: 1100px;
+  /* Escalas tipográficas reutilizables (basadas en html font-size) */
+  --fs-hero: clamp(2rem, 4.2vw, 3.6rem);
+  --fs-2xl: clamp(2.25rem, 3.2vw, 3rem);
+  --fs-xl: clamp(1.5rem, 2.2vw, 2.25rem);
+  --fs-lg: clamp(1.125rem, 1.4vw, 1.5rem);
+  --fs-md: clamp(1rem, 1.2vw, 1.125rem);
+  --fs-sm: clamp(0.875rem, 1vw, 1rem);
+  --fs-xs: clamp(0.75rem, 0.9vw, 0.875rem);
+}
+
+/* Tipografía responsiva: escala el tamaño base entre móvil y escritorio
+   - mínimo 14px, máximo 18px, con un paso fluido intermedio.
+   body usa 1rem que se basa en html font-size, por lo que los elementos
+   con tamaños relativos escalarán automáticamente. */
+html{
+  font-size: clamp(14px, 1.2vw + 0.5rem, 18px);
+  -webkit-text-size-adjust: 100%; /* evita reescalado inesperado en móviles */
+}
+body{ font-size: 1rem; }
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial;
+  color:var(--text);
+  background: radial-gradient(800px 320px at 10% 10%, rgba(229,9,20,0.035), transparent 10%), linear-gradient(180deg,var(--bg-1),var(--bg-2));
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  overflow-x:hidden;
+}
+
+/* Background hero decorative image (optional). Uses a subtle overlay to keep contrast */
+.landing-bg{ position:relative }
+.landing-bg::before{
+  content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image: url('/assets/logos-streaming.webp');
+  background-size:cover; background-position:center; opacity:0.08; filter:grayscale(40%) saturate(60%);
+}
+.landing-bg::after{ content:''; position:fixed; inset:0; z-index:1; pointer-events:none; background:linear-gradient(180deg, rgba(2,6,23,0.24), rgba(3,7,12,0.6)); }
+
+/* -----------------------------------------
+   Glass card / surfaces
+   ----------------------------------------- */
+.glass{
+  background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.02));
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 40px rgba(2,6,23,0.6);
+}
+
+.hero-card{ padding:2.25rem; max-width:calc(var(--max-width) - 120px); margin:0 auto; }
+.hero-inner{ position:relative; z-index:12; text-align:center; }
+.hero h1{ font-size: var(--fs-hero); line-height:1; margin:0 0 .4rem; font-weight:800; letter-spacing:-0.02em }
+.hero .brand{ background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:white; padding:0 .45rem; border-radius:6px; font-weight:900 }
+.lead{ color:var(--muted); margin:0 0 1.25rem; font-size:1.02rem }
+
+/* Reglas base de encabezados usando variables tipográficas para coherencia */
+h1{ font-size: var(--fs-2xl); line-height:1.05; margin:0 0 .6rem; font-weight:800 }
+h2{ font-size: var(--fs-xl); line-height:1.1; margin:0 0 .5rem; font-weight:700 }
+h3{ font-size: var(--fs-lg); line-height:1.15; margin:0 0 .4rem; font-weight:600 }
+
+.hero{ position:relative; min-height:64vh; display:flex; align-items:center; justify-content:center; padding:3.5rem 1rem; overflow:hidden }
+.hero::before{ content:''; position:absolute; width:60%; height:40%; left:-10%; top:-8%; background:radial-gradient(closest-side, rgba(var(--accent-rgb),0.06), transparent 30%); filter:blur(40px); transform:rotate(-12deg); pointer-events:none }
+.hero::after{ content:''; position:absolute; right:-10%; bottom:-8%; width:50%; height:40%; background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(var(--accent-rgb),0.04)); filter:blur(60px); pointer-events:none }
+
+.hero-actions{ display:inline-flex; gap:0.9rem; align-items:center; justify-content:center }
+.accent-btn{ display:inline-flex; align-items:center; gap:0.6rem; background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:white; padding:.62rem 1.05rem; border-radius:12px; font-weight:700; text-decoration:none; box-shadow:0 14px 40px rgba(var(--accent-rgb),0.08); border:none }
+.accent-btn:focus{ outline:3px solid rgba(var(--accent-rgb),0.12); outline-offset:3px }
+.ghost{ display:inline-flex; align-items:center; padding:.5rem .85rem; border-radius:10px; color:var(--muted); text-decoration:none; border:1px solid rgba(255,255,255,0.03); background:transparent }
+
+/* Small informative cards under hero */
+section{ z-index:12; position:relative }
+.glass.p-6{ padding:1.25rem }
+.muted{ color:var(--muted) }
+
+/* Floating decorative badges */
+.floating-logos{ position:absolute; inset:0; z-index:6; pointer-events:none }
+.floating-logo{ position:absolute; width:68px; height:68px; border-radius:14px; display:flex; align-items:center; justify-content:center; color:white; box-shadow:0 18px 40px rgba(2,6,23,0.5); mix-blend-mode:screen; opacity:.98; transition:transform .28s ease, opacity .28s ease }
+.floating-logo .iconify{ width:36px; height:36px }
+.logo--accent{ background: linear-gradient(180deg, rgba(var(--accent-rgb),1), rgba(var(--accent-rgb),0.85)); box-shadow: 0 18px 60px rgba(var(--accent-rgb),0.08) }
+.logo--glass{ background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); color:var(--text); border:1px solid rgba(255,255,255,0.04) }
+
+@keyframes floatMove{ 0%{ transform:translateY(0) } 50%{ transform:translateY(-18px) rotate(-6deg) } 100%{ transform:translateY(0) } }
+.floating-logo{ animation: floatMove 12s ease-in-out infinite }
+.floating-logo:hover{ animation-play-state:paused; transform:scale(1.02) }
+
+/* Utilities */
+.badge{ display:inline-block; padding:.2rem .5rem; border-radius:999px; font-size:.75rem; background:rgba(255,255,255,0.03) }
+
+/* Responsive */
+@media (max-width:900px){ .hero{ min-height:56vh } .floating-logo{ width:56px; height:56px } .hero-card{ padding:1.25rem } }
+@media (max-width:480px){ .hero{ padding:2rem } .hero-actions{ flex-direction:column } .accent-btn{ width:100% } .ghost{ width:100%; text-align:center } }
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce){ .floating-logo{ animation:none !important } }
+
+/* Guía interactiva para formularios: highlight y tooltip */
+.field-highlight{ position:relative; box-shadow:0 12px 40px rgba(var(--accent-rgb),0.12), 0 0 0 6px rgba(var(--accent-rgb),0.06); border-color: rgba(var(--accent-rgb),0.9); transform:translateZ(0); z-index:50; animation: guidePulse 1.6s ease-in-out infinite; }
+@keyframes guidePulse{ 0%{ box-shadow:0 6px 20px rgba(var(--accent-rgb),0.06), 0 0 0 4px rgba(var(--accent-rgb),0.04); } 50%{ box-shadow:0 18px 50px rgba(var(--accent-rgb),0.10), 0 0 0 10px rgba(var(--accent-rgb),0.06); } 100%{ box-shadow:0 6px 20px rgba(var(--accent-rgb),0.06), 0 0 0 4px rgba(var(--accent-rgb),0.04); } }
+.guide-tooltip{ position:absolute; z-index:60; background:linear-gradient(180deg, rgba(10,14,20,0.98), rgba(20,25,30,0.98)); color:var(--text); padding:.5rem .75rem; border-radius:10px; font-size:.9rem; box-shadow:0 10px 30px rgba(2,6,23,0.6); border:1px solid rgba(255,255,255,0.04); transform-origin:center left; max-width:260px }
+.guide-tooltip:after{ content:''; width:10px; height:10px; background:inherit; position:absolute; left:-5px; top:50%; transform:translateY(-50%) rotate(45deg); border-left:1px solid rgba(255,255,255,0.02); border-top:1px solid rgba(255,255,255,0.02) }
+.guide-controls{ display:flex; gap:.5rem; margin-top:.5rem }
+.guide-btn{ background:transparent; border:1px solid rgba(255,255,255,0.06); color:var(--muted); padding:.35rem .6rem; border-radius:8px; cursor:pointer }
+.guide-btn.primary{ background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:white; border:none }
+
+/* -----------------------------------------
+   Campos de formulario: texto legible
+   Forzamos color NEGRO en todos los campos de formulario
+   y en sus placeholders para mejorar la visibilidad.
+   ----------------------------------------- */
+input,
+textarea,
+select,
+.input-futur,
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+input[type="date"],
+input[type="password"]{
+  color: #000 !important;
+}
+
+/* Placeholder (varios prefijos para compatibilidad) */
+input::placeholder,
+textarea::placeholder,
+select::placeholder,
+::-webkit-input-placeholder{ color: #000 !important; opacity: 1 !important; }
+:-ms-input-placeholder{ color: #000 !important; opacity: 1 !important; }
+::-ms-input-placeholder{ color: #000 !important; opacity: 1 !important; }
+
+/* Opciones del select */
+select option{ color: #000 !important; }
+
+/* -----------------------------------------
+   Fondo global: mostrar la imagen en todas las páginas
+   Aplicamos la misma imagen y overlay que se usaba en
+   .landing-bg para que el fondo esté presente en todas
+   las rutas/HTML.
+   ----------------------------------------- */
+body::before{
+  content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image: url('/assets/logos-streaming.webp');
+  background-size:cover; background-position:center; opacity:0.08; filter:grayscale(40%) saturate(60%);
+}
+body::after{
+  content:''; position:fixed; inset:0; z-index:1; pointer-events:none; background:linear-gradient(180deg, rgba(2,6,23,0.24), rgba(3,7,12,0.6));
+}
+
+/* Mobile / small screens: reducir o desactivar decoraciones pesadas para rendimiento
+   y legibilidad en dispositivos móviles. También reforzamos outlines accesibles. */
+@media (max-width:600px){
+  body::before{ display:none; }
+  body::after{ background:linear-gradient(180deg, rgba(2,6,23,0.36), rgba(3,7,12,0.72)); }
+
+  /* Ajustes en tarjetas y espaciado para pantallas pequeñas */
+  .hero{ padding:1.25rem; min-height:44vh }
+  .hero-card{ padding:1rem }
+  .glass{ padding:1rem }
+
+  /* Inputs: asegurar ancho completo y tamaño táctil cómodo */
+  input, textarea, select, .input-futur{ font-size:1rem; padding:.75rem; }
+}
+
+/* Enfoque visible y accesible para teclados/touch */
+:focus{ outline: 3px solid rgba(var(--accent-rgb),0.12); outline-offset:3px }
+
+
+
+

@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin — Control de Cuentas Netflix</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+  <style>
+    /* Estilos personalizados para el scrollbar del modal de plantillas */
+    #template-modal .overflow-y-auto::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    #template-modal .overflow-y-auto::-webkit-scrollbar-track {
+      background: transparent;
+      border-radius: 10px;
+    }
+    
+    #template-modal .overflow-y-auto::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      transition: background 0.3s ease;
+    }
+    
+    #template-modal .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-6">
+  <script src="env.js"></script>
+  <script src="assets/ui.js"></script>
+  <script src="assets/auth_guard.js"></script>
+
+  <div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+      <div>
+        <h1 class="text-3xl font-extrabold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Panel Administrativo</h1>
+        <p class="text-sm muted mt-1">Área administrativa — acceso restringido</p>
+      </div>
+      <div class="flex gap-3 items-center flex-wrap">
+        <a href="dashboard.html" class="px-4 py-2 rounded-lg glass hover:bg-white/10 transition-all">📊 Dashboard</a>
+        <a href="accounts.html" class="px-4 py-2 rounded-lg glass hover:bg-white/10 transition-all">📋 Cuentas</a>
+        <button id="btn-logout" class="px-4 py-2 rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-all">🚪 Salir</button>
+      </div>
+    </header>
+    
+    <!-- Theme toggle -->
+    <button id="theme-toggle" class="theme-toggle" title="Cambiar tema" aria-label="Cambiar tema"></button>
+
+    <div id="admin-warning" class="glass p-4 rounded mb-4 hidden"></div>
+
+    <!-- ADMIN: Solo funciones de administración de usuarios -->
+    <div id="admin-app" class="hidden">
+      <div class="glass p-4 rounded mb-4 flex items-center justify-between">
+        <div>
+          <div class="text-sm muted">Administrador</div>
+          <div id="admin-user" class="font-mono">Cargando...</div>
+        </div>
+        <div class="flex gap-2">
+          <button id="btn-refresh" class="px-3 py-2 rounded border border-white/6 muted">Actualizar lista</button>
+          <button id="btn-create-user" class="px-3 py-2 accent-btn rounded">Crear Usuario</button>
+        </div>
+      </div>
+
+      <section class="glass p-4 rounded mb-6">
+        <h2 class="font-semibold mb-3">Usuarios del Sistema</h2>
+        <div class="mb-3 flex gap-3">
+          <input id="admin-user-search" placeholder="Buscar por correo o id" class="w-full p-2 rounded input-futur" />
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-xs text-left text-white/60 uppercase"><tr><th class="p-2">ID</th><th class="p-2">Correo</th><th class="p-2">Código Acceso</th><th class="p-2">Expira</th><th class="p-2">Acciones</th></tr></thead>
+            <tbody id="admin-users-body"><tr><td colspan="5" class="p-4 muted text-center">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Sección: Plantillas de Mensajes WhatsApp -->
+      <section class="glass p-4 rounded mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="font-semibold">📱 Plantillas de Mensajes WhatsApp</h2>
+            <p class="text-xs muted mt-1">Edita los mensajes predefinidos que se envían a los clientes</p>
+          </div>
+          <button id="btn-reset-templates" class="px-3 py-2 border border-white/6 muted hover:bg-white/5 rounded text-xs">
+            🔄 Restaurar por defecto
+          </button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button onclick="editTemplate('pago_3dias')" class="text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-cyan-500/50">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-semibold text-cyan-300">⏰ Recordatorio - 3 días</span>
+              <span class="text-xs text-white/40">✏️</span>
+            </div>
+            <div class="text-xs text-white/60">Notifica que el pago vence en 3 días</div>
+          </button>
+
+          <button onclick="editTemplate('pago_2dias')" class="text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-amber-500/50">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-semibold text-amber-300">⚠️ Recordatorio - 2 días</span>
+              <span class="text-xs text-white/40">✏️</span>
+            </div>
+            <div class="text-xs text-white/60">Notifica que el pago vence en 2 días</div>
+          </button>
+
+          <button onclick="editTemplate('pago_1dia')" class="text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-orange-500/50">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-semibold text-orange-300">🚨 Recordatorio - 1 día</span>
+              <span class="text-xs text-white/40">✏️</span>
+            </div>
+            <div class="text-xs text-white/60">Notifica que el pago vence mañana</div>
+          </button>
+
+          <button onclick="editTemplate('pago_hoy')" class="text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-rose-500/50">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-semibold text-rose-300">🔴 Pago vence HOY</span>
+              <span class="text-xs text-white/40">✏️</span>
+            </div>
+            <div class="text-xs text-white/60">Notifica que el pago vence hoy</div>
+          </button>
+
+          <button onclick="editTemplate('pago_atrasado')" class="text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-rose-500/50">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-semibold text-rose-400">💸 Pago atrasado</span>
+              <span class="text-xs text-white/40">✏️</span>
+            </div>
+            <div class="text-xs text-white/60">Notifica que el pago está vencido</div>
+          </button>
+
+          <button onclick="editTemplate('suspension')" class="text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-rose-500/50">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-semibold text-rose-500">🚫 Acceso suspendido</span>
+              <span class="text-xs text-white/40">✏️</span>
+            </div>
+            <div class="text-xs text-white/60">Notifica suspensión por falta de pago</div>
+          </button>
+
+          <button onclick="editTemplate('renovacion_proxima')" class="text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-violet-500/50">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-semibold text-violet-300">🔄 Renovación próxima</span>
+              <span class="text-xs text-white/40">✏️</span>
+            </div>
+            <div class="text-xs text-white/60">Notifica que la cuenta está por vencer</div>
+          </button>
+
+          <button onclick="editTemplate('confirmacion_pago')" class="text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-emerald-500/50">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-semibold text-emerald-300">✅ Confirmación de pago</span>
+              <span class="text-xs text-white/40">✏️</span>
+            </div>
+            <div class="text-xs text-white/60">Confirma que se recibió el pago</div>
+          </button>
+        </div>
+        <div class="mt-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg text-xs text-blue-200">
+          <strong>💡 Variables disponibles:</strong> ${'{propietario}'}, ${'{servicio}'}, ${'{precio}'}, ${'{fechaPago}'}, ${'{fechaCaducidad}'}
+        </div>
+      </section>
+
+      <!-- Sección: Centro de Notificaciones Pendientes -->
+      <section class="glass p-4 rounded mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="font-semibold">📬 Centro de Notificaciones Pendientes</h2>
+            <p class="text-xs muted mt-1">Envía notificaciones de forma rápida y organizada</p>
+          </div>
+          <div class="flex gap-2">
+            <button id="btn-refresh-pending" onclick="loadPendingNotifications()" class="px-3 py-2 border border-white/6 muted hover:bg-white/5 rounded text-xs">
+              🔄 Actualizar
+            </button>
+            <button id="btn-send-all-sequential" onclick="sendAllSequential()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 rounded text-xs text-white">
+              📱 Enviar Todo
+            </button>
+          </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="flex gap-2 mb-4 flex-wrap">
+          <select id="filter-type" onchange="loadPendingNotifications()" class="px-3 py-2 rounded input-futur text-xs">
+            <option value="all">Todos los tipos</option>
+            <option value="pago_3dias">⏰ 3 días antes</option>
+            <option value="pago_2dias">⚠️ 2 días antes</option>
+            <option value="pago_1dia">🚨 1 día antes</option>
+            <option value="pago_hoy">🔴 Vence hoy</option>
+            <option value="pago_atrasado">💸 Atrasado</option>
+            <option value="renovacion_proxima">🔄 Renovación próxima</option>
+          </select>
+          <div class="flex items-center gap-2 px-3 py-2 bg-black/20 rounded text-xs">
+            <input type="checkbox" id="filter-with-phone" checked onchange="loadPendingNotifications()" class="rounded">
+            <label for="filter-with-phone">Solo con teléfono</label>
+          </div>
+        </div>
+
+        <!-- Lista de notificaciones pendientes -->
+        <div id="pending-notifications-list" class="space-y-2 min-h-[200px]">
+          <div class="text-center py-12 muted text-sm">
+            <div class="text-4xl mb-2">📱</div>
+            Cargando notificaciones pendientes...
+          </div>
+        </div>
+
+        <!-- Progreso de envío -->
+        <div id="send-progress" class="hidden mt-4 p-4 bg-black/20 rounded-lg border border-cyan-500/50">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-semibold">Enviando notificaciones...</span>
+            <span id="progress-text" class="text-xs muted">0/0</span>
+          </div>
+          <div class="w-full bg-black/40 rounded-full h-2 overflow-hidden">
+            <div id="progress-bar" class="bg-gradient-to-r from-cyan-500 to-emerald-500 h-2 transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <div class="mt-2 text-xs muted text-center" id="progress-message">
+            Preparando envío...
+          </div>
+        </div>
+
+        <!-- Configuración de envío masivo -->
+        <div class="mt-4 p-3 bg-black/20 rounded-lg border border-white/10">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-3">
+              <label class="text-xs font-semibold">⏱️ Intervalo entre envíos:</label>
+              <select id="send-interval" class="px-2 py-1 rounded input-futur text-xs">
+                <option value="0">Inmediato (puede fallar)</option>
+                <option value="2000" selected>2 segundos (Recomendado)</option>
+                <option value="3000">3 segundos</option>
+                <option value="5000">5 segundos</option>
+                <option value="10000">10 segundos</option>
+              </select>
+            </div>
+            <div class="text-xs muted">
+              💡 Un intervalo más largo evita bloqueos de WhatsApp
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- Modal Editar Plantilla de Mensaje -->
+      <div id="template-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50 p-4">
+        <div class="glass rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+          <div class="flex items-center justify-between p-6 pb-4 border-b border-white/10 flex-shrink-0">
+            <h2 class="text-xl font-semibold">✏️ Editar Plantilla de Mensaje</h2>
+            <button onclick="closeTemplateModal()" class="text-white/60 hover:text-white text-2xl">&times;</button>
+          </div>
+          
+          <div class="overflow-y-auto flex-1 p-6 pt-4">
+            <form id="template-form">
+              <input type="hidden" id="template-type">
+              
+              <div class="mb-4">
+                <div class="flex items-center justify-between mb-2">
+                  <label class="block text-sm font-semibold">Nombre de la plantilla:</label>
+                  <span id="template-name-display" class="text-sm text-cyan-300 font-mono">-</span>
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <label class="block text-sm muted mb-2">Mensaje:</label>
+                <textarea id="template-content" rows="10" class="w-full p-3 rounded-lg input-futur font-mono text-sm" placeholder="Escribe el mensaje de la plantilla..."></textarea>
+                <div class="mt-2 text-xs text-white/60">
+                  <strong>💡 Tip:</strong> Usa *texto* para negrita en WhatsApp
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <label class="block text-sm muted mb-2">Variables disponibles (se reemplazan automáticamente):</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <button type="button" onclick="insertVariable('propietario')" class="px-3 py-2 bg-black/30 hover:bg-black/40 rounded text-xs font-mono border border-white/10">
+                    ${'{propietario}'}
+                  </button>
+                  <button type="button" onclick="insertVariable('servicio')" class="px-3 py-2 bg-black/30 hover:bg-black/40 rounded text-xs font-mono border border-white/10">
+                    ${'{servicio}'}
+                  </button>
+                  <button type="button" onclick="insertVariable('precio')" class="px-3 py-2 bg-black/30 hover:bg-black/40 rounded text-xs font-mono border border-white/10">
+                    ${'{precio}'}
+                  </button>
+                  <button type="button" onclick="insertVariable('fechaPago')" class="px-3 py-2 bg-black/30 hover:bg-black/40 rounded text-xs font-mono border border-white/10">
+                    ${'{fechaPago}'}
+                  </button>
+                  <button type="button" onclick="insertVariable('fechaCaducidad')" class="px-3 py-2 bg-black/30 hover:bg-black/40 rounded text-xs font-mono border border-white/10">
+                    ${'{fechaCaducidad}'}
+                  </button>
+                </div>
+              </div>
+
+              <div class="p-3 bg-emerald-900/20 border border-emerald-500/30 rounded-lg">
+                <label class="block text-xs muted mb-2">Vista previa (ejemplo):</label>
+                <pre id="template-preview" class="text-sm whitespace-pre-wrap">-</pre>
+              </div>
+            </form>
+          </div>
+
+          <div class="flex gap-3 p-6 pt-4 border-t border-white/10 flex-shrink-0">
+            <button onclick="closeTemplateModal()" class="flex-1 px-4 py-3 border border-white/10 rounded-lg hover:bg-white/5 transition">
+              Cancelar
+            </button>
+            <button onclick="saveTemplate()" class="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition">
+              💾 Guardar Plantilla
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Crear/Editar Usuario -->
+      <div id="user-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
+        <div class="glass p-6 rounded-2xl max-w-md w-full mx-4">
+          <h2 id="user-modal-title" class="text-xl font-semibold mb-4">Crear Usuario</h2>
+          <form id="user-form" class="space-y-3">
+            <input type="hidden" id="user-id">
+            <div>
+              <label class="block text-xs muted mb-1">Correo electrónico</label>
+              <input id="user-email" type="email" required class="w-full p-3 rounded-lg input-futur">
+            </div>
+            <div>
+              <label class="block text-xs muted mb-1">Duración del acceso</label>
+              <select id="user-duration" class="w-full p-3 rounded-lg input-futur">
+                <option value="7">7 días</option>
+                <option value="15">15 días</option>
+                <option value="30" selected>30 días (1 mes)</option>
+                <option value="60">60 días (2 meses)</option>
+                <option value="90">90 días (3 meses)</option>
+                <option value="180">180 días (6 meses)</option>
+                <option value="365">365 días (1 año)</option>
+              </select>
+              <p class="text-xs muted mt-1">El sistema generará un código de acceso automáticamente</p>
+            </div>
+            <div class="flex justify-end gap-3 mt-2">
+              <button type="button" onclick="closeUserModal()" class="px-4 py-2 border rounded">Cancelar</button>
+              <button id="user-submit" type="submit" class="px-4 py-2 accent-btn rounded">Crear Usuario y Generar Código</button>
+            </div>
+            <p id="user-form-msg" class="text-sm mt-2 hidden"></p>
+          </form>
+        </div>
+      </div>
+
+      <!-- Modal para mostrar código generado -->
+      <div id="code-display-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
+        <div class="glass p-6 rounded-2xl max-w-md w-full mx-4">
+          <h2 class="text-xl font-semibold mb-4">✅ Código de Acceso Generado</h2>
+          <div class="space-y-4">
+            <div class="bg-white/5 p-4 rounded-lg border border-white/10">
+              <p class="text-xs muted mb-2">Usuario:</p>
+              <p class="font-mono text-lg" id="code-user-email">-</p>
+            </div>
+            <div class="brand-gradient p-6 rounded-lg">
+              <p class="text-xs muted mb-2">Código de acceso:</p>
+              <p class="font-mono text-3xl font-bold text-center tracking-wider" id="code-display">XXXXXXXX</p>
+              <button onclick="copyCode()" class="mt-3 w-full px-3 py-2 bg-white/10 hover:bg-white/20 rounded text-sm">
+                📋 Copiar código
+              </button>
+            </div>
+            <div class="bg-white/5 p-4 rounded-lg border border-white/10">
+              <p class="text-xs muted mb-2">Válido hasta:</p>
+              <p class="font-mono" id="code-expires">-</p>
+            </div>
+            <div class="bg-orange-600/20 p-3 rounded border border-orange-500/50">
+              <p class="text-sm text-orange-100 font-medium">⚠️ Guarda este código. Envíalo al usuario para que pueda iniciar sesión.</p>
+            </div>
+            <button onclick="closeCodeModal()" class="w-full px-4 py-2 accent-btn rounded">Entendido</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Generar Nuevo Código -->
+      <div id="generate-code-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
+        <div class="glass p-6 rounded-2xl max-w-md w-full mx-4">
+          <h2 class="text-xl font-semibold mb-4">🔑 Generar Nuevo Código</h2>
+          <form id="generate-code-form" class="space-y-3">
+            <input type="hidden" id="gen-user-id">
+            <div class="bg-white/5 p-3 rounded border border-white/10">
+              <p class="text-xs muted mb-1">Usuario:</p>
+              <p class="font-mono" id="gen-user-email">-</p>
+            </div>
+            <div>
+              <label class="block text-xs muted mb-1">Duración del nuevo código</label>
+              <select id="gen-duration" class="w-full p-3 rounded-lg input-futur">
+                <option value="7">7 días</option>
+                <option value="15">15 días</option>
+                <option value="30" selected>30 días (1 mes)</option>
+                <option value="60">60 días (2 meses)</option>
+                <option value="90">90 días (3 meses)</option>
+                <option value="180">180 días (6 meses)</option>
+                <option value="365">365 días (1 año)</option>
+              </select>
+            </div>
+            <div class="brand-gradient p-3 rounded">
+              <p class="text-xs brand-note">ℹ️ El código anterior se desactivará y se generará uno nuevo.</p>
+            </div>
+            <div class="flex justify-end gap-3">
+              <button type="button" onclick="closeGenerateCodeModal()" class="px-4 py-2 border rounded">Cancelar</button>
+              <button type="submit" class="px-4 py-2 accent-btn rounded">Generar Código</button>
+            </div>
+            <p id="gen-code-msg" class="text-sm mt-2 hidden"></p>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 text-sm muted flex justify-between items-center">
+      <span class="text-xs text-white/40">v1.0 • local</span>
+    </div>
+  </div>
+
+  <script>
+    (async function(){
+      // Requerir que el usuario sea admin (redirige a login si no lo es)
+      try{ if(window.__auth){ const ok = await window.__auth.requireAdmin(); if(!ok) return; } }catch(e){ console.error(e); return; }
+      
+      // Validar Supabase config
+      if(!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY){ 
+        document.getElementById('admin-warning').classList.remove('hidden'); 
+        document.getElementById('admin-warning').textContent = 'Supabase no configurado. Copia env.example.js a env.js y configura SUPABASE_URL y SUPABASE_ANON_KEY.'; 
+        return; 
+      }
+
+      // Verificar que existe la SERVICE_ROLE_KEY para operaciones admin
+      if(!window.SUPABASE_SERVICE_ROLE_KEY){ 
+        document.getElementById('admin-warning').classList.remove('hidden'); 
+        document.getElementById('admin-warning').textContent = 'Para usar el panel admin, debes agregar SUPABASE_SERVICE_ROLE_KEY en env.js. ADVERTENCIA: Solo para desarrollo local, nunca en producción.'; 
+        return; 
+      }
+
+      // Cargar SDK
+      if(typeof supabase === 'undefined'){
+        await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+      }
+      await new Promise(resolve => setTimeout(resolve, 80));
+
+      const sb = (typeof supabase !== 'undefined' && supabase.createClient) ? supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : (window.createClient ? window.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null);
+      if(!sb){ document.getElementById('admin-warning').classList.remove('hidden'); document.getElementById('admin-warning').textContent = 'No se pudo inicializar Supabase.'; return; }
+
+      // Cliente admin con service role key
+      const adminClient = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
+      // Obtener usuario actual y verificar admin
+      let currentUserEmail = 'Desconocido';
+      try{ 
+        const { data } = await sb.auth.getUser(); 
+        const user = data?.user || null; 
+        if(user){ currentUserEmail = user.email || user.id; } 
+      }catch(e){ /* ignore */ }
+
+      // Verificar admin mediante RPC is_admin()
+      let isAdmin = false;
+      try{
+        const { data, error } = await sb.rpc('is_admin');
+        if(!error){ 
+          if(data === true || (Array.isArray(data) && data[0] === true) || (data && data.is_admin)) isAdmin = true; 
+        }
+      }catch(e){ console.error('Error verificando admin:', e); }
+
+      // Si no es admin, mostrar advertencia y detener
+      if(!isAdmin){ 
+        document.getElementById('admin-warning').classList.remove('hidden'); 
+        document.getElementById('admin-warning').textContent = 'Acceso denegado — no eres administrador.'; 
+        return; 
+      }
+
+      // Mostrar app
+      document.getElementById('admin-app').classList.remove('hidden');
+      document.getElementById('admin-user').textContent = currentUserEmail;
+
+      // Logout
+      document.getElementById('btn-logout').addEventListener('click', async ()=>{ 
+        try{ await sb.auth.signOut(); }catch(e){} 
+        window.location.href='index.html'; 
+      });
+
+      // Funciones administrativas usando el cliente con service role
+      async function adminCreateUser({ email, password }){
+        try{ 
+          const resp = await adminClient.auth.admin.createUser({ email, password, email_confirm: true }); 
+          if(resp.error) throw resp.error;
+          return resp; 
+        }catch(e){ throw e; } 
+      }
+
+      async function adminUpdateUser(id, { email, password }){
+        try{ 
+          const updates = {};
+          if(email) updates.email = email;
+          if(password) updates.password = password;
+          const resp = await adminClient.auth.admin.updateUserById(id, updates); 
+          if(resp.error) throw resp.error;
+          return resp; 
+        }catch(e){ throw e; } 
+      }
+
+      async function adminDeleteUser(id){ 
+        try{ 
+          const resp = await adminClient.auth.admin.deleteUser(id); 
+          if(resp.error) throw resp.error;
+          return resp; 
+        }catch(e){ throw e; } 
+      }
+
+      async function adminToggleUser(id, enable){ 
+        try{ 
+          const resp = await adminClient.auth.admin.updateUserById(id, { ban_duration: enable ? 'none' : '876000h' }); 
+          if(resp.error) throw resp.error;
+          return resp; 
+        }catch(e){ throw e; } 
+      }
+
+      async function loadUsers(){
+        const tbody = document.getElementById('admin-users-body'); 
+        tbody.innerHTML = '<tr><td colspan="5" class="p-4 muted text-center">Cargando...</td></tr>';
+        try{
+          const { data, error } = await adminClient.auth.admin.listUsers();
+          if(error) throw error;
+          
+          let users = data.users || data || [];
+          if(!Array.isArray(users)) users = [];
+          
+          if(users.length===0){ 
+            tbody.innerHTML = '<tr><td colspan="5" class="p-4 muted text-center">No se encontraron usuarios</td></tr>'; 
+            return; 
+          }
+          
+          // Obtener códigos de acceso para todos los usuarios usando adminClient
+          const { data: accessCodes } = await adminClient.from('access_codes')
+            .select('*')
+            .eq('is_active', true)
+            .gt('expires_at', new Date().toISOString())
+            .order('created_at', { ascending: false });
+          
+          const codesMap = {};
+          if(accessCodes){
+            accessCodes.forEach(code => {
+              if(!codesMap[code.user_id] || new Date(code.expires_at) > new Date(codesMap[code.user_id].expires_at)){
+                codesMap[code.user_id] = code;
+              }
+            });
+          }
+          
+          tbody.innerHTML=''; 
+          users.forEach(u=>{ 
+            const tr=document.createElement('tr'); 
+            const banned = u.banned_until && new Date(u.banned_until) > new Date();
+            const userEmail = u.email || u.identities?.[0]?.identity_data?.email || '';
+            const safeEmail = (userEmail||'').replace(/'/g,"\\'");
+            
+            const userCode = codesMap[u.id];
+            let codeDisplay = '<span class="text-rose-400 text-xs">Sin código</span>';
+            let expiresDisplay = '-';
+            
+            if(userCode){
+              const expiresDate = new Date(userCode.expires_at);
+              const daysRemaining = Math.ceil((expiresDate - new Date()) / (1000 * 60 * 60 * 24));
+              const codeClass = daysRemaining < 7 ? 'text-orange-400' : 'text-green-400';
+              codeDisplay = `<span class="font-mono ${codeClass}">${userCode.code}</span>`;
+              expiresDisplay = `<span class="${codeClass} text-xs">${daysRemaining}d restantes</span>`;
+            }
+            
+            tr.innerHTML = `
+              <td class="p-2 font-mono text-xs">${u.id.substring(0,8)}...</td>
+              <td class="p-2">${userEmail}</td>
+              <td class="p-2">${codeDisplay}</td>
+              <td class="p-2">${expiresDisplay}</td>
+              <td class="p-2">
+                <div class="flex gap-2 flex-wrap">
+                  <button class="px-2 py-1 text-xs border border-green-500/30 text-green-300 rounded hover:bg-green-500/10" onclick="openGenerateCode('${u.id}','${safeEmail}')" title="Generar nuevo código">🔑 Código</button>
+                  <button class="px-2 py-1 text-xs border border-white/10 rounded hover:bg-white/5" onclick="handleToggleUser('${u.id}', ${!banned})">${banned? 'Activar' : 'Desactivar'}</button>
+                  <button class="px-2 py-1 text-xs border border-rose-500/30 text-rose-300 rounded hover:bg-rose-500/10" onclick="handleDeleteUser('${u.id}')">Eliminar</button>
+                </div>
+              </td>
+            `; 
+            tbody.appendChild(tr); 
+          });
+        }catch(err){ 
+          tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-rose-300">Error: ${err.message||String(err)}</td></tr>`; 
+        }
+      }
+
+      // Función para generar código alfanumérico seguro
+      function generateCode(){
+        // Usar caracteres más variados incluyendo minúsculas para mayor entropía
+        const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // Sin I, O para evitar confusión
+        const lowercase = 'abcdefghjkmnpqrstuvwxyz'; // Sin i, l, o para evitar confusión
+        const numbers = '23456789'; // Sin 0, 1 para evitar confusión
+        const allChars = uppercase + lowercase + numbers;
+        
+        let code = '';
+        // Generar 12 caracteres para mayor seguridad (antes eran 8)
+        for(let i=0; i<12; i++){
+          // Usar crypto.getRandomValues para números aleatorios criptográficamente seguros
+          const randomIndex = crypto.getRandomValues(new Uint32Array(1))[0] % allChars.length;
+          code += allChars.charAt(randomIndex);
+        }
+        
+        // Agregar un carácter especial en posición aleatoria para mayor complejidad
+        const specialChars = '@#$%&*';
+        const specialChar = specialChars.charAt(crypto.getRandomValues(new Uint32Array(1))[0] % specialChars.length);
+        const insertPos = crypto.getRandomValues(new Uint32Array(1))[0] % (code.length + 1);
+        code = code.slice(0, insertPos) + specialChar + code.slice(insertPos);
+        
+        return code;
+      }
+
+      // Función para crear usuario con código
+      async function createUserWithCode(email, durationDays){
+        try{
+          // Crear usuario con contraseña temporal aleatoria (no se usará)
+          const tempPassword = Math.random().toString(36).slice(-16) + Math.random().toString(36).slice(-16);
+          const { data: userData, error: userError } = await adminClient.auth.admin.createUser({
+            email,
+            password: tempPassword,
+            email_confirm: true
+          });
+          
+          if(userError) throw userError;
+          const userId = userData.user.id;
+          
+          // Generar código de acceso usando adminClient (service role) para evitar RLS
+          const code = generateCode();
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + parseInt(durationDays));
+          
+          const { data: codeData, error: codeError } = await adminClient.from('access_codes').insert({
+            user_id: userId,
+            code: code,
+            duration_days: parseInt(durationDays),
+            expires_at: expiresAt.toISOString(),
+            is_active: true
+          }).select().single();
+          
+          if(codeError) throw codeError;
+          
+          return { user: userData.user, code: codeData };
+        }catch(e){
+          throw e;
+        }
+      }
+
+      // Función para generar nuevo código para usuario existente
+      async function generateNewCode(userId, durationDays){
+        try{
+          // Desactivar códigos anteriores usando adminClient
+          await adminClient.from('access_codes')
+            .update({ is_active: false })
+            .eq('user_id', userId);
+          
+          // Generar nuevo código usando adminClient
+          const code = generateCode();
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + parseInt(durationDays));
+          
+          const { data, error } = await adminClient.from('access_codes').insert({
+            user_id: userId,
+            code: code,
+            duration_days: parseInt(durationDays),
+            expires_at: expiresAt.toISOString(),
+            is_active: true
+          }).select().single();
+          
+          if(error) throw error;
+          return data;
+        }catch(e){
+          throw e;
+        }
+      }
+
+      // Funciones globales para modales
+      window.openUserModal = function(){
+        document.getElementById('user-modal').classList.remove('hidden');
+      };
+
+      window.closeUserModal = function(){
+        document.getElementById('user-modal').classList.add('hidden');
+        document.getElementById('user-email').value = '';
+        document.getElementById('user-duration').value = '30';
+      };
+
+      window.openGenerateCode = function(userId, email){
+        document.getElementById('gen-user-id').value = userId;
+        document.getElementById('gen-user-email').textContent = email;
+        document.getElementById('gen-duration').value = '30';
+        document.getElementById('gen-code-msg').classList.add('hidden');
+        document.getElementById('generate-code-modal').classList.remove('hidden');
+      };
+
+      window.closeGenerateCodeModal = function(){
+        document.getElementById('generate-code-modal').classList.add('hidden');
+      };
+
+      window.closeCodeModal = function(){
+        document.getElementById('code-display-modal').classList.add('hidden');
+      };
+
+      window.copyCode = function(){
+        const code = document.getElementById('code-display').textContent;
+        navigator.clipboard.writeText(code).then(() => {
+          alert('Código copiado al portapapeles');
+        });
+      };
+
+      function showCodeModal(email, code, expiresAt){
+        document.getElementById('code-user-email').textContent = email;
+        document.getElementById('code-display').textContent = code;
+        const expires = new Date(expiresAt);
+        document.getElementById('code-expires').textContent = expires.toLocaleString('es-ES');
+        document.getElementById('code-display-modal').classList.remove('hidden');
+      }
+
+      window.handleDeleteUser = async function(id){
+        if(!confirm('¿Eliminar usuario? Esta acción no se puede deshacer.')) return;
+        try{ 
+          await adminDeleteUser(id); 
+          await loadUsers(); 
+          alert('Usuario eliminado correctamente'); 
+        }catch(e){ 
+          alert('Error al eliminar: ' + (e.message||e)); 
+        }
+      };
+
+      window.handleToggleUser = async function(id, enable){
+        try{ 
+          await adminToggleUser(id, enable); 
+          await loadUsers(); 
+          alert('Usuario actualizado correctamente'); 
+        }catch(e){ 
+          alert('Error al actualizar: ' + (e.message||e)); 
+        }
+      };
+
+      // Hook botones
+      document.getElementById('btn-refresh').addEventListener('click', async ()=>{ await loadUsers(); });
+      document.getElementById('btn-create-user').addEventListener('click', ()=> openUserModal());
+
+      document.getElementById('admin-user-search').addEventListener('input', function(){ 
+        const q=this.value.trim().toLowerCase(); 
+        const rows = Array.from(document.querySelectorAll('#admin-users-body tr')); 
+        rows.forEach(r=>{ 
+          const txt = r.textContent.toLowerCase(); 
+          r.style.display = (!q || txt.includes(q))? '' : 'none'; 
+        }); 
+      });
+
+      // Form submit crear usuario
+      document.getElementById('user-form').addEventListener('submit', async (e)=>{
+        e.preventDefault(); 
+        const email = document.getElementById('user-email').value.trim(); 
+        const duration = document.getElementById('user-duration').value;
+        const msg = document.getElementById('user-form-msg'); 
+        const submitBtn = document.getElementById('user-submit');
+        
+        msg.classList.add('hidden'); 
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creando...';
+        
+        try{
+          if(!email){ throw new Error('Correo requerido'); }
+          
+          const result = await createUserWithCode(email, duration);
+          
+          closeUserModal();
+          showCodeModal(email, result.code.code, result.code.expires_at);
+          await loadUsers();
+        }catch(err){ 
+          msg.textContent = '❌ ' + (err.message || String(err)); 
+          msg.className = 'text-sm mt-2 text-rose-400';
+          msg.classList.remove('hidden'); 
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Crear Usuario y Generar Código';
+        }
+      });
+
+      // Form submit generar código
+      document.getElementById('generate-code-form').addEventListener('submit', async (e)=>{
+        e.preventDefault(); 
+        const userId = document.getElementById('gen-user-id').value;
+        const email = document.getElementById('gen-user-email').textContent;
+        const duration = document.getElementById('gen-duration').value;
+        const msg = document.getElementById('gen-code-msg');
+        
+        msg.classList.add('hidden');
+        
+        try{
+          const code = await generateNewCode(userId, duration);
+          closeGenerateCodeModal();
+          showCodeModal(email, code.code, code.expires_at);
+          await loadUsers();
+        }catch(err){
+          msg.textContent = '❌ ' + (err.message || String(err));
+          msg.className = 'text-sm mt-2 text-rose-400';
+          msg.classList.remove('hidden');
+        }
+      });
+
+      // ===== GESTIÓN DE PLANTILLAS DE MENSAJES WHATSAPP =====
+      
+      // Plantillas por defecto
+      const defaultTemplates = {
+        pago_3dias: `Hola {propietario},
+
+Te recordamos que tu pago de {servicio} vence en *3 días* ({fechaPago}).
+
+💵 Monto: ${'{precio}'}
+
+Por favor realiza tu pago a tiempo para evitar interrupciones en el servicio.
+
+¡Gracias por tu preferencia! 😊`,
+
+        pago_2dias: `Hola {propietario},
+
+⚠️ Tu pago de {servicio} vence en *2 días* ({fechaPago}).
+
+💵 Monto: ${'{precio}'}
+
+Te pedimos realizar el pago pronto para mantener tu servicio activo.
+
+¡Gracias! 🙏`,
+
+        pago_1dia: `Hola {propietario},
+
+🚨 *IMPORTANTE:* Tu pago de {servicio} vence *MAÑANA* ({fechaPago}).
+
+💵 Monto: ${'{precio}'}
+
+Por favor realiza tu pago cuanto antes para evitar la suspensión del servicio.
+
+Gracias por tu atención.`,
+
+        pago_hoy: `Hola {propietario},
+
+🔴 *URGENTE:* Tu pago de {servicio} vence *HOY* ({fechaPago}).
+
+💵 Monto: ${'{precio}'}
+
+Es necesario que realices el pago hoy mismo para mantener tu servicio activo.
+
+¡Gracias!`,
+
+        pago_atrasado: `Hola {propietario},
+
+Notamos que tu pago de {servicio} está *atrasado* desde {fechaPago}.
+
+💵 Monto: ${'{precio}'}
+
+Para reactivar tu servicio, te pedimos regularizar tu pago lo antes posible.
+
+Quedamos atentos. Gracias.`,
+
+        suspension: `Hola {propietario},
+
+Lamentamos informarte que tu acceso a {servicio} ha sido *suspendido* por falta de pago.
+
+💵 Monto pendiente: ${'{precio}'}
+📅 Fecha de pago vencida: {fechaPago}
+
+Para reactivar tu servicio, por favor realiza el pago pendiente.
+
+Gracias por tu comprensión.`,
+
+        renovacion_proxima: `Hola {propietario},
+
+Te informamos que tu cuenta de {servicio} está próxima a vencer el *{fechaCaducidad}*.
+
+Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
+
+💵 Precio de renovación: ${'{precio}'}
+
+¡Gracias por confiar en nosotros! 😊`,
+
+        confirmacion_pago: `Hola {propietario},
+
+✅ *¡Pago confirmado!*
+
+Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
+
+📅 Próximo pago: {fechaPago}
+📅 Servicio válido hasta: {fechaCaducidad}
+
+¡Gracias por tu pago puntual! 🎉`
+      };
+
+      // Nombres legibles para cada plantilla
+      const templateNames = {
+        pago_3dias: '⏰ Recordatorio - 3 días para pago',
+        pago_2dias: '⚠️ Recordatorio - 2 días para pago',
+        pago_1dia: '🚨 Recordatorio - 1 día para pago',
+        pago_hoy: '🔴 Pago vence HOY',
+        pago_atrasado: '💸 Pago atrasado',
+        suspension: '🚫 Acceso suspendido',
+        renovacion_proxima: '🔄 Renovación próxima',
+        confirmacion_pago: '✅ Confirmación de pago'
+      };
+
+      // Cargar plantillas desde localStorage
+      function loadTemplates() {
+        const saved = localStorage.getItem('whatsapp_templates');
+        if (saved) {
+          try {
+            return JSON.parse(saved);
+          } catch (e) {
+            return { ...defaultTemplates };
+          }
+        }
+        return { ...defaultTemplates };
+      }
+
+      // Guardar plantillas en localStorage
+      function saveTemplates(templates) {
+        localStorage.setItem('whatsapp_templates', JSON.stringify(templates));
+      }
+
+      let currentTemplates = loadTemplates();
+      let currentEditingTemplate = null;
+
+      // Abrir modal de edición de plantilla
+      window.editTemplate = function(templateType) {
+        currentEditingTemplate = templateType;
+        document.getElementById('template-type').value = templateType;
+        document.getElementById('template-name-display').textContent = templateNames[templateType] || templateType;
+        document.getElementById('template-content').value = currentTemplates[templateType] || '';
+        updateTemplatePreview();
+        document.getElementById('template-modal').classList.remove('hidden');
+      };
+
+      // Cerrar modal de plantilla
+      window.closeTemplateModal = function() {
+        document.getElementById('template-modal').classList.add('hidden');
+        currentEditingTemplate = null;
+      };
+
+      // Insertar variable en el cursor
+      window.insertVariable = function(varName) {
+        const textarea = document.getElementById('template-content');
+        const cursorPos = textarea.selectionStart;
+        const textBefore = textarea.value.substring(0, cursorPos);
+        const textAfter = textarea.value.substring(textarea.selectionEnd);
+        const varText = `{${varName}}`;
+        
+        textarea.value = textBefore + varText + textAfter;
+        textarea.focus();
+        textarea.setSelectionRange(cursorPos + varText.length, cursorPos + varText.length);
+        
+        updateTemplatePreview();
+      };
+
+      // Actualizar vista previa
+      function updateTemplatePreview() {
+        const content = document.getElementById('template-content').value;
+        const preview = content
+          .replace(/{propietario}/g, 'Juan Pérez')
+          .replace(/{servicio}/g, 'Netflix')
+          .replace(/{precio}/g, '$5.99')
+          .replace(/{fechaPago}/g, '28/10/2025')
+          .replace(/{fechaCaducidad}/g, '28/11/2025');
+        
+        document.getElementById('template-preview').textContent = preview;
+      }
+
+      // Escuchar cambios en el textarea
+      document.getElementById('template-content')?.addEventListener('input', updateTemplatePreview);
+
+      // Guardar plantilla
+      window.saveTemplate = function() {
+        if (!currentEditingTemplate) return;
+        
+        const content = document.getElementById('template-content').value.trim();
+        if (!content) {
+          alert('El contenido de la plantilla no puede estar vacío.');
+          return;
+        }
+
+        currentTemplates[currentEditingTemplate] = content;
+        saveTemplates(currentTemplates);
+        
+        closeTemplateModal();
+        
+        // Mostrar mensaje de éxito
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-6 right-6 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        successMsg.innerHTML = `✅ Plantilla "${templateNames[currentEditingTemplate]}" guardada correctamente`;
+        document.body.appendChild(successMsg);
+        
+        setTimeout(() => {
+          successMsg.remove();
+        }, 3000);
+      };
+
+      // Restaurar plantillas por defecto
+      document.getElementById('btn-reset-templates')?.addEventListener('click', function() {
+        if (confirm('¿Estás seguro de que deseas restaurar todas las plantillas a sus valores por defecto? Esta acción no se puede deshacer.')) {
+          currentTemplates = { ...defaultTemplates };
+          saveTemplates(currentTemplates);
+          
+          const successMsg = document.createElement('div');
+          successMsg.className = 'fixed top-6 right-6 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+          successMsg.innerHTML = '🔄 Plantillas restauradas a valores por defecto';
+          document.body.appendChild(successMsg);
+          
+          setTimeout(() => {
+            successMsg.remove();
+          }, 3000);
+        }
+      });
+
+      // ===== SISTEMA DE NOTIFICACIONES PENDIENTES =====
+      
+      let pendingNotifications = [];
+      let isSending = false;
+
+      // Cargar notificaciones pendientes
+      window.loadPendingNotifications = async function() {
+        try {
+          const allAccounts = await dbFetchAccounts();
+          const filterType = document.getElementById('filter-type').value;
+          const onlyWithPhone = document.getElementById('filter-with-phone').checked;
+          
+          // Filtrar cuentas que necesitan notificación
+          const notifications = [];
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          for (const account of allAccounts) {
+            if (onlyWithPhone && (!account.telefono || account.telefono.trim() === '')) continue;
+
+            const paymentDate = account.fechaPago ? new Date(account.fechaPago + 'T00:00:00') : null;
+            const expiryDate = account.fechaCaducidad ? new Date(account.fechaCaducidad + 'T00:00:00') : null;
+
+            if (!paymentDate) continue;
+
+            const daysToPayment = paymentDate ? Math.ceil((paymentDate - today) / (1000 * 60 * 60 * 24)) : null;
+            const daysToExpiry = expiryDate ? Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24)) : null;
+
+            let notificationType = null;
+            let priority = 0;
+
+            if (daysToPayment !== null) {
+              if (daysToPayment === 3) {
+                notificationType = 'pago_3dias';
+                priority = 3;
+              } else if (daysToPayment === 2) {
+                notificationType = 'pago_2dias';
+                priority = 4;
+              } else if (daysToPayment === 1) {
+                notificationType = 'pago_1dia';
+                priority = 5;
+              } else if (daysToPayment === 0) {
+                notificationType = 'pago_hoy';
+                priority = 6;
+              } else if (daysToPayment < 0) {
+                notificationType = 'pago_atrasado';
+                priority = 7;
+              }
+            }
+
+            if (daysToExpiry !== null && daysToExpiry >= 0 && daysToExpiry <= 7 && !notificationType) {
+              notificationType = 'renovacion_proxima';
+              priority = 2;
+            }
+
+            if (notificationType) {
+              if (filterType === 'all' || filterType === notificationType) {
+                notifications.push({
+                  account,
+                  type: notificationType,
+                  priority,
+                  daysToPayment,
+                  daysToExpiry
+                });
+              }
+            }
+          }
+
+          // Ordenar por prioridad (mayor prioridad primero)
+          notifications.sort((a, b) => b.priority - a.priority);
+          pendingNotifications = notifications;
+
+          renderNotificationsList();
+        } catch (err) {
+          console.error('Error loading pending notifications:', err);
+          document.getElementById('pending-notifications-list').innerHTML = `
+            <div class="text-center py-12 text-rose-400 text-sm">
+              <div class="text-4xl mb-2">❌</div>
+              Error al cargar notificaciones
+            </div>
+          `;
+        }
+      };
+
+      // Renderizar lista de notificaciones
+      function renderNotificationsList() {
+        const container = document.getElementById('pending-notifications-list');
+
+        if (pendingNotifications.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-12 muted text-sm">
+              <div class="text-4xl mb-2">✅</div>
+              No hay notificaciones pendientes
+            </div>
+          `;
+          return;
+        }
+
+        const typeLabels = {
+          pago_3dias: { label: '⏰ 3 días antes', color: 'bg-blue-600/20 text-blue-300' },
+          pago_2dias: { label: '⚠️ 2 días antes', color: 'bg-yellow-600/20 text-yellow-300' },
+          pago_1dia: { label: '🚨 1 día antes', color: 'bg-orange-600/20 text-orange-300' },
+          pago_hoy: { label: '🔴 Vence HOY', color: 'bg-red-600/20 text-red-300' },
+          pago_atrasado: { label: '💸 ATRASADO', color: 'bg-rose-600/20 text-rose-300' },
+          renovacion_proxima: { label: '🔄 Renovación próxima', color: 'bg-purple-600/20 text-purple-300' }
+        };
+
+        container.innerHTML = `
+          <div class="mb-3 flex items-center justify-between">
+            <span class="text-sm muted">Total: ${pendingNotifications.length} notificaciones</span>
+            <button onclick="selectAllNotifications()" class="text-xs text-cyan-400 hover:text-cyan-300">
+              Seleccionar todo
+            </button>
+          </div>
+          ${pendingNotifications.map((notif, index) => {
+            const typeInfo = typeLabels[notif.type];
+            const account = notif.account;
+            return `
+              <div class="flex items-center gap-3 p-3 bg-black/20 rounded-lg border border-white/10 hover:border-cyan-500/50 transition">
+                <input type="checkbox" id="notif-${index}" class="notif-checkbox rounded" checked>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="font-semibold">${account.propietario || 'Sin nombre'}</span>
+                    <span class="px-2 py-0.5 ${typeInfo.color} rounded text-xs">${typeInfo.label}</span>
+                  </div>
+                  <div class="text-xs muted flex items-center gap-3">
+                    <span>📱 ${account.telefono || 'Sin teléfono'}</span>
+                    <span>💰 $${account.precio || 0}</span>
+                    ${notif.daysToPayment !== null ? `<span>📅 ${notif.daysToPayment >= 0 ? 'En ' + notif.daysToPayment + ' días' : 'Atrasado ' + Math.abs(notif.daysToPayment) + ' días'}</span>` : ''}
+                  </div>
+                </div>
+                <button onclick="sendSingleNotification(${index})" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 rounded text-xs text-white transition">
+                  📱 Enviar
+                </button>
+              </div>
+            `;
+          }).join('')}
+        `;
+      }
+
+      // Seleccionar/deseleccionar todas las notificaciones
+      window.selectAllNotifications = function() {
+        const checkboxes = document.querySelectorAll('.notif-checkbox');
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        checkboxes.forEach(cb => cb.checked = !allChecked);
+      };
+
+      // Enviar una notificación individual
+      window.sendSingleNotification = async function(index) {
+        const notif = pendingNotifications[index];
+        if (!notif) return;
+
+        const account = notif.account;
+        const templates = loadMessageTemplates() || {};
+        
+        // Usar la plantilla configurada o la por defecto
+        let message = templates[notif.type] || '';
+        
+        if (!message) {
+          alert('No hay plantilla configurada para este tipo de notificación. Por favor, configúrala en la sección de Plantillas.');
+          return;
+        }
+
+        // Procesar plantilla
+        message = message
+          .replace(/{propietario}/g, account.propietario || 'Cliente')
+          .replace(/{servicio}/g, account.servicio || 'Netflix')
+          .replace(/{precio}/g, '$' + (account.precio || 0))
+          .replace(/{fechaPago}/g, formatDate(account.fechaPago))
+          .replace(/{fechaCaducidad}/g, formatDate(account.fechaCaducidad));
+
+        // Limpiar número de teléfono
+        let phone = account.telefono.trim().replace(/[\s-()]/g, '');
+        if (!phone.startsWith('+')) phone = '+' + phone;
+
+        // Abrir WhatsApp
+        const encodedMessage = encodeURIComponent(message);
+        const whatsappUrl = `https://wa.me/${phone.replace('+', '')}?text=${encodedMessage}`;
+        window.open(whatsappUrl, '_blank');
+
+        // Marcar como enviada (desmarcar checkbox)
+        const checkbox = document.getElementById(`notif-${index}`);
+        if (checkbox) checkbox.checked = false;
+      };
+
+      // Enviar todas las notificaciones seleccionadas de forma secuencial
+      window.sendAllSequential = async function() {
+        const checkboxes = document.querySelectorAll('.notif-checkbox:checked');
+        
+        if (checkboxes.length === 0) {
+          alert('No hay notificaciones seleccionadas para enviar.');
+          return;
+        }
+
+        if (!confirm(`¿Enviar ${checkboxes.length} notificaciones?\n\nSe abrirán pestañas de WhatsApp Web secuencialmente con un intervalo entre cada una.`)) {
+          return;
+        }
+
+        isSending = true;
+        const interval = parseInt(document.getElementById('send-interval').value);
+        const progressContainer = document.getElementById('send-progress');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const progressMessage = document.getElementById('progress-message');
+
+        progressContainer.classList.remove('hidden');
+        document.getElementById('btn-send-all-sequential').disabled = true;
+
+        const templates = loadMessageTemplates() || {};
+        let sent = 0;
+        const total = checkboxes.length;
+
+        for (const checkbox of checkboxes) {
+          if (!isSending) break;
+
+          const index = parseInt(checkbox.id.replace('notif-', ''));
+          const notif = pendingNotifications[index];
+          
+          if (!notif) continue;
+
+          const account = notif.account;
+          let message = templates[notif.type] || '';
+
+          if (message) {
+            message = message
+              .replace(/{propietario}/g, account.propietario || 'Cliente')
+              .replace(/{servicio}/g, account.servicio || 'Netflix')
+              .replace(/{precio}/g, '$' + (account.precio || 0))
+              .replace(/{fechaPago}/g, formatDate(account.fechaPago))
+              .replace(/{fechaCaducidad}/g, formatDate(account.fechaCaducidad));
+
+            let phone = account.telefono.trim().replace(/[\s-()]/g, '');
+            if (!phone.startsWith('+')) phone = '+' + phone;
+
+            const encodedMessage = encodeURIComponent(message);
+            const whatsappUrl = `https://wa.me/${phone.replace('+', '')}?text=${encodedMessage}`;
+            
+            window.open(whatsappUrl, '_blank');
+            checkbox.checked = false;
+            sent++;
+
+            progressText.textContent = `${sent}/${total}`;
+            progressBar.style.width = `${(sent / total) * 100}%`;
+            progressMessage.textContent = `Enviado a ${account.propietario || 'Cliente'}... Siguiente en ${interval/1000}s`;
+          }
+
+          if (sent < total) {
+            await new Promise(resolve => setTimeout(resolve, interval));
+          }
+        }
+
+        progressMessage.textContent = `✅ Proceso completado: ${sent} notificaciones enviadas`;
+        document.getElementById('btn-send-all-sequential').disabled = false;
+        isSending = false;
+
+        setTimeout(() => {
+          progressContainer.classList.add('hidden');
+          loadPendingNotifications();
+        }, 3000);
+      };
+
+      // Función auxiliar para formatear fechas
+      function formatDate(dateStr) {
+        if (!dateStr) return 'No definida';
+        const date = new Date(dateStr + 'T00:00:00');
+        return date.toLocaleDateString('es', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      }
+
+      // Función auxiliar para cargar plantillas desde localStorage
+      function loadMessageTemplates() {
+        const saved = localStorage.getItem('whatsapp_templates');
+        if (saved) {
+          try {
+            return JSON.parse(saved);
+          } catch (e) {
+            return null;
+          }
+        }
+        return null;
+      }
+
+      // Cargar datos iniciales
+      await loadPendingNotifications();
+      // Auto load users
+      await loadUsers();
+    })();
+  </script>
+</body>
+</html>

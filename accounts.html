@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cuentas - Control de Cuentas Netflix</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+  <style>
+    /* Estilos personalizados para el scrollbar del modal */
+    #notification-modal .overflow-y-auto::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    #notification-modal .overflow-y-auto::-webkit-scrollbar-track {
+      background: transparent;
+      border-radius: 10px;
+    }
+    
+    #notification-modal .overflow-y-auto::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      transition: background 0.3s ease;
+    }
+    
+    #notification-modal .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Animación suave para el modal */
+    #notification-modal.show {
+      animation: fadeIn 0.2s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+    
+    /* Estilos para paginación */
+    #pagination-controls button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    
+    #pagination-controls button:disabled:hover {
+      background: transparent;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-6">
+  <!-- Cargar env.js de forma síncrona primero -->
+  <script src="env.js"></script>
+  <script src="assets/ui.js"></script>
+  <script src="assets/auth_guard.js"></script>
+  <div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+      <div>
+        <h1 class="text-3xl font-extrabold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Mis Cuentas</h1>
+        <p class="text-sm muted mt-1">Usuario: <span id="header-user" class="font-mono px-2 py-1 rounded glass">Cargando...</span></p>
+      </div>
+      <div class="flex gap-3 items-center flex-wrap">
+        <a href="dashboard.html" class="px-4 py-2 rounded-lg glass hover:bg-white/10 transition-all">📊 Dashboard</a>
+        <button id="btn-profile" class="px-4 py-2 rounded-lg glass hover:bg-white/10 transition-all">👤 Perfil</button>
+        <a id="admin-functions-btn" href="admin.html" class="px-4 py-2 rounded-lg glass hover:bg-white/10 transition-all hidden">⚙️ Admin</a>
+        <button id="btn-logout" class="px-4 py-2 rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-all">🚪 Salir</button>
+      </div>
+    </header>
+    
+    <!-- Theme toggle -->
+    <button id="theme-toggle" class="theme-toggle" title="Cambiar tema" aria-label="Cambiar tema"></button>
+
+    <div id="accounts-app">
+
+      <!-- Formulario para Agregar Nueva Cuenta -->
+      <div class="glass p-6 rounded-2xl mb-8">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Agregar Nueva Cuenta</h2>
+          <div class="text-sm muted">Rápido • Eficiente</div>
+          <div class="ml-4">
+            <button id="start-guide" type="button" class="guide-btn" title="Iniciar guía rápida">🡆 Guía</button>
+          </div>
+        </div>
+        <form id="add-account-form" class="grid grid-cols-1 md:grid-cols-8 gap-4">
+          <div class="col-span-2">
+            <label for="propietario" class="block text-sm muted mb-1">Propietario</label>
+            <input type="text" id="propietario" placeholder="Nombre del propietario" required class="w-full p-3 rounded-lg input-futur">
+          </div>
+          <div class="col-span-2">
+            <label for="correo" class="block text-sm muted mb-1">Correo Electrónico</label>
+            <input type="email" id="correo" placeholder="correo@ejemplo.com" class="w-full p-3 rounded-lg input-futur">
+          </div>
+          <div class="col-span-2">
+            <label for="telefono" class="block text-sm muted mb-1">Teléfono</label>
+            <input type="tel" id="telefono" value="+593" placeholder="+593 9XXXXXXXX" pattern="\+?[0-9\s-]{6,20}" class="w-full p-3 rounded-lg input-futur">
+          </div>
+          <div class="col-span-2">
+            <label for="servicio" class="block text-sm muted mb-1">Servicio</label>
+            <div class="flex gap-2 items-center">
+              <select id="servicio" class="w-full p-3 rounded-lg input-futur">
+                <option value="netflix">Netflix</option>
+                <option value="disney">Disney+</option>
+                <option value="hbo">HBO</option>
+                <option value="other">Otro...</option>
+              </select>
+            </div>
+            <input type="text" id="servicio-otro" placeholder="Especificar servicio" class="w-full p-3 rounded-lg input-futur mt-2" style="display:none">
+          </div>
+          <div>
+            <label for="fecha-compra" class="block text-sm muted mb-1">Fecha de Compra</label>
+            <input type="date" id="fecha-compra" required class="w-full p-3 rounded-lg input-futur">
+          </div>
+          <div>
+            <label for="fecha-pago" class="block text-sm muted mb-1">Fecha de Pago <span class="text-xs muted">(automática)</span>
+              <button type="button" id="edit-payment-date" class="ml-2 text-xs text-white/60 underline">editar</button>
+            </label>
+            <input type="date" id="fecha-pago" readonly class="w-full p-3 rounded-lg input-futur cursor-not-allowed">
+          </div>
+          <div>
+            <label for="precio" class="block text-sm muted mb-1">Precio ($)</label>
+            <input type="number" id="precio" placeholder="0.00" required step="0.01" class="w-full p-3 rounded-lg input-futur">
+          </div>
+          <div>
+            <label for="duracion-meses" class="block text-sm muted mb-1">Duración (meses)</label>
+            <select id="duracion-meses" class="w-full p-3 rounded-lg input-futur">
+              <option value="1" selected>1 mes</option>
+              <option value="3">3 meses</option>
+              <option value="6">6 meses</option>
+              <option value="12">12 meses</option>
+            </select>
+          </div>
+          <div class="col-span-full md:col-span-7">
+            <label for="notas" class="block text-sm muted mb-1">Notas (Estado, Perfiles, etc.)</label>
+            <input type="text" id="notas" placeholder="Información adicional sobre la cuenta" class="w-full p-3 rounded-lg input-futur">
+          </div>
+          <div class="col-span-full md:col-span-1 flex items-end">
+            <button type="submit" class="w-full accent-btn py-3 rounded-lg font-semibold">+ Añadir</button>
+          </div>
+        </form>
+        <div id="message-box" class="mt-3 hidden text-sm p-3 rounded-lg"></div>
+      </div>
+
+      <!-- Script: guía interactiva para el formulario Agregar Nueva Cuenta -->
+      <script>
+        (function(){
+          const guideBtn = document.getElementById('start-guide');
+          if(!guideBtn) return;
+
+          const steps = [
+            {selector:'#propietario', text:'Ingrese el nombre del propietario. Use nombre completo si es posible.'},
+            {selector:'#correo', text:'Correo del cliente. Será usado para contactarlo.'},
+            {selector:'#telefono', text:'Teléfono del cliente. Prefijo por defecto +593 (Ecuador). Ajuste si es otro país.'},
+            {selector:'#fecha-compra', text:'Fecha en que se realizó la venta.'},
+            {selector:'#fecha-pago', text:'Fecha de próximo pago (se calcula automáticamente). Puede editarla.'},
+            {selector:'#precio', text:'Precio cobrado. Use punto para decimales.'},
+            {selector:'#duracion-meses', text:'Duración en meses de la venta. Esto define la caducidad.'},
+            {selector:'#notas', text:'Notas opcionales: perfiles, estado o instrucciones.'}
+          ];
+
+          let current = -1;
+          let tooltipEl = null;
+          function createTooltip(){ tooltipEl = document.createElement('div'); tooltipEl.className='guide-tooltip'; const controls = document.createElement('div'); controls.className='guide-controls'; const nextBtn = document.createElement('button'); nextBtn.textContent='Siguiente'; nextBtn.className='guide-btn primary'; nextBtn.addEventListener('click', nextStep); const skipBtn = document.createElement('button'); skipBtn.textContent='Finalizar'; skipBtn.className='guide-btn'; skipBtn.addEventListener('click', endGuide); controls.appendChild(nextBtn); controls.appendChild(skipBtn); tooltipEl.appendChild(document.createElement('div')); tooltipEl.appendChild(controls); document.body.appendChild(tooltipEl); }
+
+          function positionTooltip(target){ if(!tooltipEl) createTooltip(); const rect = target.getBoundingClientRect(); const top = rect.top + window.scrollY + (rect.height/2) - 28; const left = rect.left + window.scrollX + rect.width + 12; tooltipEl.style.top = (top)+'px'; tooltipEl.style.left = (left)+'px'; }
+
+          function highlight(el){ removeHighlights(); el.classList.add('field-highlight'); el.focus({preventScroll:false}); el.scrollIntoView({behavior:'smooth', block:'center'}); }
+          function removeHighlights(){ document.querySelectorAll('.field-highlight').forEach(e=>e.classList.remove('field-highlight')); if(tooltipEl) tooltipEl.remove(); tooltipEl=null; }
+
+          function showStep(i){ if(i<0 || i>=steps.length) return endGuide(); current=i; const s = steps[i]; const target = document.querySelector(s.selector); if(!target) return nextStep(); // skip if missing
+            highlight(target);
+            if(!tooltipEl) createTooltip(); tooltipEl.firstChild.textContent = s.text; positionTooltip(target);
+          }
+
+          function nextStep(){ current++; if(current>=steps.length){ endGuide(); return; } showStep(current); }
+
+          function endGuide(){ removeHighlights(); current=-1; guideBtn.textContent='🡆 Guía'; guideBtn.disabled=false; }
+
+          guideBtn.addEventListener('click', ()=>{ if(current!==-1){ endGuide(); return; } guideBtn.textContent='✕ Cancelar'; guideBtn.disabled=false; nextStep(); });
+        })();
+      </script>
+
+      <!-- Modal de Edición -->
+      <div id="edit-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
+        <div class="glass p-6 rounded-2xl max-w-4xl w-full mx-4 max-h-90vh overflow-y-auto">
+          <h2 class="text-xl font-semibold mb-4">Editar Cuenta</h2>
+          <form id="edit-account-form" class="grid grid-cols-1 md:grid-cols-8 gap-4">
+            <input type="hidden" id="edit-account-id">
+            <div class="col-span-2">
+              <label class="block text-sm muted mb-1">Propietario</label>
+              <input type="text" id="edit-propietario" required class="w-full p-3 rounded-lg input-futur">
+            </div>
+            <div class="col-span-2">
+              <label class="block text-sm muted mb-1">Correo Electrónico</label>
+              <input type="email" id="edit-correo" class="w-full p-3 rounded-lg input-futur">
+            </div>
+            <div class="col-span-2">
+              <label class="block text-sm muted mb-1">Servicio</label>
+              <select id="edit-servicio" class="w-full p-3 rounded-lg input-futur">
+                <option value="netflix">Netflix</option>
+                <option value="disney">Disney+</option>
+                <option value="hbo">HBO</option>
+                <option value="other">Otro...</option>
+              </select>
+              <input type="text" id="edit-servicio-otro" placeholder="Especificar servicio" class="w-full p-3 rounded-lg input-futur mt-2" style="display:none">
+            </div>
+              <div class="col-span-2">
+                <label class="block text-sm muted mb-1">Teléfono</label>
+                <input type="tel" id="edit-telefono" class="w-full p-3 rounded-lg input-futur" placeholder="+593 9XXXXXXXX" pattern="\+?[0-9\s-]{6,20}">
+              </div>
+            <div>
+              <label class="block text-sm muted mb-1">Fecha de Compra</label>
+              <input type="date" id="edit-fecha-compra" required class="w-full p-3 rounded-lg input-futur">
+            </div>
+            <div>
+              <label class="block text-sm muted mb-1">Fecha de Pago</label>
+              <input type="date" id="edit-fecha-pago" class="w-full p-3 rounded-lg input-futur">
+            </div>
+            <div>
+              <label class="block text-sm muted mb-1">Precio ($)</label>
+              <input type="number" id="edit-precio" required step="0.01" class="w-full p-3 rounded-lg input-futur">
+            </div>
+            <div>
+              <label class="block text-sm muted mb-1">Fecha de Caducidad</label>
+              <input type="date" id="edit-fecha-caducidad" required class="w-full p-3 rounded-lg input-futur">
+            </div>
+            <div class="col-span-full">
+              <label class="block text-sm muted mb-1">Notas</label>
+              <input type="text" id="edit-notas" class="w-full p-3 rounded-lg input-futur">
+            </div>
+            <div class="col-span-full flex justify-end space-x-3 mt-4">
+              <button type="button" onclick="closeEditModal()" class="px-4 py-2 border border-white/8 rounded">Cancelar</button>
+              <button type="submit" class="px-4 py-2 accent-btn rounded">Guardar Cambios</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+        <!-- Modal de Perfil de Usuario -->
+        <div id="profile-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
+          <div class="glass p-6 rounded-2xl max-w-md w-full mx-4">
+            <h2 class="text-xl font-semibold mb-4">Perfil</h2>
+            <div class="mb-4 text-sm muted">Información de la cuenta y opciones</div>
+            <div class="mb-3">
+              <label class="block text-xs muted mb-1">Correo</label>
+              <div id="profile-email" class="px-3 py-2 bg-black/20 rounded text-sm font-mono">Cargando...</div>
+            </div>
+            <form id="change-password-form" class="space-y-3">
+              <div>
+                <label class="block text-xs muted mb-1">Nueva contraseña</label>
+                <input type="password" id="new-password" class="w-full p-3 rounded-lg input-futur" placeholder="Ingrese nueva contraseña">
+              </div>
+              <div>
+                <label class="block text-xs muted mb-1">Confirmar contraseña</label>
+                <input type="password" id="confirm-password" class="w-full p-3 rounded-lg input-futur" placeholder="Repite la contraseña">
+              </div>
+              <div class="flex justify-end gap-3 mt-2">
+                <button type="button" onclick="closeProfileModal()" class="px-4 py-2 border border-white/8 rounded">Cerrar</button>
+                <button type="submit" class="px-4 py-2 accent-btn rounded">Cambiar contraseña</button>
+              </div>
+              <p id="profile-msg" class="text-sm mt-2 hidden"></p>
+            </form>
+          </div>
+        </div>
+
+      <!-- Filtros -->
+      <div class="glass p-4 rounded-2xl mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-semibold">🔍 Filtros de Búsqueda</h3>
+          <div class="text-sm muted">Filtra rápido</div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-sm muted mb-1">Propietario</label>
+            <input id="filter-propietario" class="w-full p-2 rounded input-futur">
+          </div>
+          <div>
+            <label class="block text-sm muted mb-1">Días para Renovación</label>
+            <select id="filter-dias-renovacion" class="w-full p-2 rounded input-futur">
+              <option value="">Todos</option>
+              <option value="vencidas">🔴 Ya vencidas</option>
+              <option value="hoy">🚨 Vencen hoy</option>
+              <option value="1-3">⚠️ 1-3 días</option>
+              <option value="4-7">4-7 días</option>
+              <option value="8-15">8-15 días</option>
+              <option value="16-30">16-30 días</option>
+              <option value="30+">Más de 30 días</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm muted mb-1">Estado de Pago</label>
+            <select id="filter-pago" class="w-full p-2 rounded input-futur">
+              <option value="">Todos</option>
+              <option value="atrasado">💸 Pagos atrasados</option>
+              <option value="hoy">⏰ Pago hoy</option>
+              <option value="proximo">📅 Próximos pagos (≤3 días)</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button id="clear-filters" class="w-full border border-white/8 py-2 rounded">🗑️ Limpiar</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4" id="filters-second-row">
+          <div>
+            <label class="block text-sm muted mb-1">Notas</label>
+            <input id="filter-notas" class="w-full p-2 rounded input-futur">
+          </div>
+          <div>
+            <label class="block text-sm muted mb-1">Mes de Compra</label>
+            <select id="filter-fecha-compra" class="w-full p-2 rounded input-futur">
+              <option value="">Todos los meses</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm muted mb-1">ID de Cuenta</label>
+            <input id="filter-id" class="w-full p-2 rounded input-futur">
+          </div>
+          <div>
+            <label class="block text-sm muted mb-1">Ordenar por</label>
+            <select id="filter-ordenar" class="w-full p-2 rounded input-futur">
+              <option value="caducidad">Fecha de caducidad</option>
+              <option value="pago">Fecha de pago</option>
+              <option value="propietario">Propietario</option>
+              <option value="precio">Precio</option>
+              <option value="compra">Fecha de compra</option>
+            </select>
+          </div>
+        </div>
+        <div class="mt-4 text-center"><button id="toggle-filters" class="border border-white/8 py-2 px-4 rounded">⚙️ Mostrar Filtros Avanzados</button></div>
+        <div id="filter-summary" class="mt-3 text-sm muted hidden"></div>
+      </div>
+
+      <!-- Tabla Compacta -->
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full">
+            <thead class="text-xs text-left text-white/60 uppercase tracking-wider">
+              <tr>
+                <th class="px-6 py-3">ID</th>
+                <th class="px-6 py-3">Propietario</th>
+                <th class="px-6 py-3">Servicio</th>
+                <th class="px-6 py-3">Precio</th>
+                <th class="px-6 py-3">F. Caducidad</th>
+                <th class="px-6 py-3">Días p/ Pago</th>
+                <th class="px-6 py-3">Estado</th>
+                <th class="px-6 py-3">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="accounts-table-body" class="bg-transparent divide-y divide-white/6">
+              <tr><td colspan="8" class="text-center py-8 muted">Cargando datos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Controles de Paginación -->
+        <div id="pagination-controls" class="flex flex-col md:flex-row items-center justify-between p-4 border-t border-white/10 gap-4">
+          <div class="flex items-center gap-4">
+            <label class="text-sm muted">Mostrar:</label>
+            <select id="items-per-page" class="px-3 py-2 rounded-lg input-futur text-sm">
+              <option value="10">10 por página</option>
+              <option value="20" selected>20 por página</option>
+              <option value="50">50 por página</option>
+              <option value="100">100 por página</option>
+              <option value="all">Todas</option>
+            </select>
+            <span id="page-info" class="text-sm muted">Página 1 de 1</span>
+          </div>
+          
+          <div class="flex items-center gap-2">
+            <button id="btn-first-page" class="px-3 py-2 rounded-lg glass hover:bg-white/10 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed" title="Primera página">
+              ⏮️ Primera
+            </button>
+            <button id="btn-prev-page" class="px-3 py-2 rounded-lg glass hover:bg-white/10 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed" title="Página anterior">
+              ◀️ Anterior
+            </button>
+            <div id="page-numbers" class="flex gap-1"></div>
+            <button id="btn-next-page" class="px-3 py-2 rounded-lg glass hover:bg-white/10 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed" title="Página siguiente">
+              Siguiente ▶️
+            </button>
+            <button id="btn-last-page" class="px-3 py-2 rounded-lg glass hover:bg-white/10 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed" title="Última página">
+              Última ⏭️
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de Notificaciones WhatsApp -->
+      <div id="notification-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50 p-4">
+        <div class="glass rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+          <div class="flex items-center justify-between p-6 pb-4 border-b border-white/10 flex-shrink-0">
+            <h2 class="text-xl font-semibold">📱 Enviar Notificación WhatsApp</h2>
+            <button onclick="closeNotificationModal()" class="text-white/60 hover:text-white text-2xl">&times;</button>
+          </div>
+          
+          <div class="overflow-y-auto flex-1 p-6 pt-4" style="scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.3) transparent;">
+          
+          <div class="mb-4 p-4 bg-black/20 rounded-lg">
+            <div class="text-xs text-white/60 mb-1">Cliente</div>
+            <div id="notify-propietario" class="font-semibold text-lg">-</div>
+            <div class="text-xs text-white/60 mt-2">Teléfono</div>
+            <div id="notify-telefono" class="font-mono text-sm">-</div>
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-sm muted mb-2">Selecciona el tipo de notificación:</label>
+            <div class="space-y-2">
+              <button onclick="selectNotificationType('pago_3dias')" class="notification-option w-full text-left p-4 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-cyan-500/50">
+                <div class="font-semibold text-cyan-300">⏰ Recordatorio - 3 días para pago</div>
+                <div class="text-xs text-white/60 mt-1">Notifica que el pago vence en 3 días</div>
+              </button>
+              
+              <button onclick="selectNotificationType('pago_2dias')" class="notification-option w-full text-left p-4 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-cyan-500/50">
+                <div class="font-semibold text-amber-300">⚠️ Recordatorio - 2 días para pago</div>
+                <div class="text-xs text-white/60 mt-1">Notifica que el pago vence en 2 días</div>
+              </button>
+              
+              <button onclick="selectNotificationType('pago_1dia')" class="notification-option w-full text-left p-4 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-cyan-500/50">
+                <div class="font-semibold text-orange-300">🚨 Recordatorio - 1 día para pago</div>
+                <div class="text-xs text-white/60 mt-1">Notifica que el pago vence mañana</div>
+              </button>
+              
+              <button onclick="selectNotificationType('pago_hoy')" class="notification-option w-full text-left p-4 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-rose-500/50">
+                <div class="font-semibold text-rose-300">🔴 Pago vence HOY</div>
+                <div class="text-xs text-white/60 mt-1">Notifica que el pago vence hoy</div>
+              </button>
+              
+              <button onclick="selectNotificationType('pago_atrasado')" class="notification-option w-full text-left p-4 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-rose-500/50">
+                <div class="font-semibold text-rose-400">💸 Pago atrasado</div>
+                <div class="text-xs text-white/60 mt-1">Notifica que el pago está vencido</div>
+              </button>
+              
+              <button onclick="selectNotificationType('suspension')" class="notification-option w-full text-left p-4 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-rose-500/50">
+                <div class="font-semibold text-rose-500">🚫 Acceso suspendido</div>
+                <div class="text-xs text-white/60 mt-1">Notifica suspensión por falta de pago</div>
+              </button>
+              
+              <button onclick="selectNotificationType('renovacion_proxima')" class="notification-option w-full text-left p-4 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-violet-500/50">
+                <div class="font-semibold text-violet-300">🔄 Renovación próxima</div>
+                <div class="text-xs text-white/60 mt-1">Notifica que la cuenta está por vencer</div>
+              </button>
+              
+              <button onclick="selectNotificationType('confirmacion_pago')" class="notification-option w-full text-left p-4 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-emerald-500/50">
+                <div class="font-semibold text-emerald-300">✅ Confirmación de pago</div>
+                <div class="text-xs text-white/60 mt-1">Confirma que se recibió el pago</div>
+              </button>
+              
+              <button onclick="selectNotificationType('personalizado')" class="notification-option w-full text-left p-4 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-white/20">
+                <div class="font-semibold text-white/90">✏️ Mensaje personalizado</div>
+                <div class="text-xs text-white/60 mt-1">Escribe tu propio mensaje</div>
+              </button>
+            </div>
+          </div>
+
+          <div id="message-preview-container" class="mb-4 hidden">
+            <label class="block text-sm muted mb-2">Vista previa del mensaje:</label>
+            <div class="p-4 bg-emerald-900/20 border border-emerald-500/30 rounded-lg">
+              <pre id="message-preview" class="text-sm whitespace-pre-wrap font-mono">-</pre>
+            </div>
+            <div id="custom-message-container" class="mt-3 hidden">
+              <textarea id="custom-message-input" rows="5" class="w-full p-3 rounded-lg input-futur" placeholder="Escribe tu mensaje personalizado..."></textarea>
+            </div>
+          </div>
+
+          <div id="notification-warning" class="mb-4 p-3 bg-amber-900/20 border border-amber-500/30 rounded-lg text-sm text-amber-200 hidden">
+            <strong>⚠️ Advertencia:</strong> <span id="warning-text"></span>
+          </div>
+
+          </div>
+
+          <div class="flex gap-3 p-6 pt-4 border-t border-white/10 flex-shrink-0">
+            <button onclick="closeNotificationModal()" class="flex-1 px-4 py-3 border border-white/10 rounded-lg hover:bg-white/5 transition">
+              Cancelar
+            </button>
+            <button id="send-whatsapp-btn" onclick="sendWhatsAppMessage()" class="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+              📱 Abrir WhatsApp
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de Detalles de Cuenta -->
+      <div id="details-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
+        <div class="glass p-6 rounded-2xl max-w-2xl w-full mx-4 max-h-90vh overflow-y-auto">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold">Detalles de la Cuenta</h2>
+            <button onclick="closeDetailsModal()" class="text-white/60 hover:text-white text-2xl">&times;</button>
+          </div>
+          
+          <div class="space-y-4">
+            <!-- Info Grid -->
+            <div class="grid grid-cols-2 gap-4">
+              <div class="col-span-2 p-4 bg-black/20 rounded-lg">
+                <div class="text-xs text-white/60 mb-1">ID de Cuenta</div>
+                <div id="detail-id" class="text-lg font-mono font-semibold text-cyan-300">-</div>
+              </div>
+              
+              <div class="p-4 bg-black/20 rounded-lg">
+                <div class="text-xs text-white/60 mb-1">Propietario</div>
+                <div id="detail-propietario" class="font-semibold">-</div>
+              </div>
+              
+              <div class="p-4 bg-black/20 rounded-lg">
+                <div class="text-xs text-white/60 mb-1">Servicio</div>
+                <div id="detail-servicio" class="font-semibold">-</div>
+              </div>
+              
+              <div class="p-4 bg-black/20 rounded-lg">
+                <div class="text-xs text-white/60 mb-1">Correo Electrónico</div>
+                <div id="detail-correo" class="text-sm">-</div>
+              </div>
+              
+              <div class="p-4 bg-black/20 rounded-lg">
+                <div class="text-xs text-white/60 mb-1">Teléfono</div>
+                <div id="detail-telefono" class="text-sm">-</div>
+              </div>
+              
+              <div class="p-4 bg-black/20 rounded-lg">
+                <div class="text-xs text-white/60 mb-1">Precio</div>
+                <div id="detail-precio" class="text-lg font-semibold text-emerald-300">-</div>
+              </div>
+              
+              <div class="p-4 bg-black/20 rounded-lg">
+                <div class="text-xs text-white/60 mb-1">Fecha de Compra</div>
+                <div id="detail-fecha-compra" class="text-sm">-</div>
+              </div>
+              
+              <div class="p-4 bg-black/20 rounded-lg">
+                <div class="text-xs text-white/60 mb-1">Fecha de Pago</div>
+                <div id="detail-fecha-pago" class="text-sm">-</div>
+              </div>
+              
+              <div class="p-4 bg-black/20 rounded-lg">
+                <div class="text-xs text-white/60 mb-1">Fecha de Caducidad</div>
+                <div id="detail-fecha-caducidad" class="text-sm">-</div>
+              </div>
+              
+              <div class="p-4 bg-black/20 rounded-lg">
+                <div class="text-xs text-white/60 mb-1">Días para Pago</div>
+                <div id="detail-dias-pago" class="font-bold text-lg">-</div>
+              </div>
+              
+              <div class="p-4 bg-black/20 rounded-lg">
+                <div class="text-xs text-white/60 mb-1">Días para Renovación</div>
+                <div id="detail-dias-renovacion" class="font-bold text-lg">-</div>
+              </div>
+              
+              <div class="col-span-2 p-4 bg-black/20 rounded-lg">
+                <div class="text-xs text-white/60 mb-1">Notas</div>
+                <div id="detail-notas" class="text-sm">-</div>
+              </div>
+            </div>
+            
+            <!-- Acciones Rápidas -->
+            <div class="grid grid-cols-2 gap-3 pt-4 border-t border-white/10">
+              <button id="detail-btn-notify" class="px-4 py-3 bg-green-600/20 hover:bg-green-600/30 text-green-300 rounded-lg font-semibold transition">
+                📱 Notificar
+              </button>
+              <button id="detail-btn-edit" class="px-4 py-3 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 rounded-lg font-semibold transition">
+                ✏️ Editar
+              </button>
+              <button id="detail-btn-pay" class="px-4 py-3 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 rounded-lg font-semibold transition">
+                💰 Pagar
+              </button>
+              <button id="detail-btn-renew" class="px-4 py-3 bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 rounded-lg font-semibold transition">
+                🔄 Renovar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="mt-6 text-sm muted flex justify-between items-center">
+      <a href="dashboard.html" class="hover:text-white transition-colors">← Ver Dashboard</a>
+      <span class="text-xs text-white/40">v2.0 • Control de Cuentas</span>
+    </div>
+
+  </div>
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // theme control centralized in assets/ui.js
+
+    // Solo usar Supabase - sin fallback a localStorage
+    let currentUserId = null;
+    let supabaseClient = null;
+
+    async function initSupabase() {
+      // Verificar configuración
+      if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) {
+        console.error('Supabase no configurado');
+        window.location.href = 'login.html';
+        return null;
+      }
+
+      // Inicializar cliente si no existe
+      if (!window.__supabase) {
+        if (typeof supabase === 'undefined') {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+            s.onload = resolve; s.onerror = reject; document.head.appendChild(s);
+          }).catch((err)=>{
+            console.error('Error cargando Supabase:', err);
+          });
+        }
+
+        // Esperar un momento para que la librería se inicialice
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Inicializar cliente
+        if (typeof supabase !== 'undefined' && supabase.createClient) {
+          window.__supabase = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+        } else if (typeof window.createClient !== 'undefined') {
+          window.__supabase = window.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+        }
+      }
+
+      if (!window.__supabase) {
+        console.error('No se pudo inicializar Supabase');
+        window.location.href = 'login.html';
+        return null;
+      }
+
+      return window.__supabase;
+    }
+
+    async function initSession() {
+      supabaseClient = await initSupabase();
+      if (!supabaseClient) return;
+
+      try {
+        // SIEMPRE validar sesión contra Supabase
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+
+        if (error) {
+          console.error('Error obteniendo sesión:', error);
+          window.location.href = 'login.html';
+          return;
+        }
+
+        if (!session?.user) {
+          console.warn('No hay sesión activa');
+          window.location.href = 'login.html';
+          return;
+        }
+
+        currentUserId = session.user.id;
+
+        // Mostrar email del usuario
+        const el = document.getElementById('header-user');
+        el.textContent = session.user.email || session.user.id;
+
+        // verificar si es admin para mostrar funciones administrativas
+        try{
+          const { data: isAdminData, error: isAdminError } = await supabaseClient.rpc('is_admin');
+          const isAdmin = (!isAdminError && (isAdminData === true || (Array.isArray(isAdminData) && isAdminData.length && (isAdminData[0] === true || isAdminData[0] === 1)) || (isAdminData && isAdminData.is_admin)));
+          if(isAdmin){ const btn = document.getElementById('admin-functions-btn'); if(btn) btn.classList.remove('hidden'); }
+        }catch(e){ /* ignore silently */ }
+
+      } catch (err) {
+        console.error('Error validando sesión:', err);
+        window.location.href = 'login.html';
+        return;
+      }
+
+      // Configurar logout
+      document.getElementById('btn-logout').addEventListener('click', async ()=>{
+        try {
+          await supabaseClient.auth.signOut();
+        } catch (e) {
+          console.warn('Error during signOut', e);
+        }
+        window.location.href = 'login.html';
+      });
+    }
+
+    // Storage helpers: solo Supabase
+    const appId = 'local-netflix-app';
+    
+    // Variables de paginación
+    let currentPage = 1;
+    let itemsPerPage = 20;
+    let allFilteredAccounts = [];
+    
+    function generateId(){ return Date.now().toString() + Math.random().toString(36).slice(2,9); }
+
+    function toDbObject(account) {
+      return {
+        id: account.id,
+        app_id: account.appId || appId,
+        user_id: account.userId || currentUserId,
+        propietario: account.propietario || null,
+        correo: account.correo || null,
+        telefono: account.telefono || null,
+        servicio: account.servicio || null,
+        fecha_compra: account.fechaCompra || null,
+        fecha_pago: account.fechaPago || null,
+        fecha_caducidad: account.fechaCaducidad || null,
+        precio: account.precio == null ? null : parseFloat(account.precio),
+        duracion_meses: account.duracionMeses || null,
+        notas: account.notas || null,
+        display_id: account.displayId || null
+      };
+    }
+
+    function fromDbObject(row){
+      return {
+        id: row.id,
+        appId: row.app_id,
+        userId: row.user_id,
+        propietario: row.propietario,
+        correo: row.correo,
+        telefono: row.telefono,
+        servicio: row.servicio,
+        fechaCompra: row.fecha_compra,
+        fechaPago: row.fecha_pago,
+        fechaCaducidad: row.fecha_caducidad,
+        precio: row.precio,
+        duracionMeses: row.duracion_meses,
+        notas: row.notas,
+        displayId: row.display_id
+      };
+    }
+
+    async function dbFetchAccounts(){
+      const client = window.__supabase;
+      if (!client) return [];
+      const { data, error } = await client.from('netflix_accounts').select('*').eq('user_id', currentUserId);
+      if (error) { console.error('Error fetch accounts', error); return []; }
+      return (data||[]).map(fromDbObject);
+    }
+
+    async function dbInsertAccount(account){
+      const client = window.__supabase;
+      if (!client) throw new Error('Supabase no inicializado');
+      const dbObj = toDbObject(account);
+      // Si estamos usando Supabase, no enviamos un `id` generado localmente (Postgres generará un uuid)
+      if (dbObj.id) delete dbObj.id;
+      // Asegurar que user_id esté presente (o confiar en trigger set_user_id_from_auth si está ausente)
+      if (!dbObj.user_id && currentUserId) dbObj.user_id = currentUserId;
+      const { data, error } = await client.from('netflix_accounts').insert([dbObj]).select().single();
+      if (error) throw error;
+      return fromDbObject(data);
+    }
+
+    async function dbUpdateAccount(account){
+      const client = window.__supabase;
+      if (!client) throw new Error('Supabase no inicializado');
+      const dbObj = toDbObject(account);
+      const { data, error } = await client.from('netflix_accounts').update(dbObj).eq('id', account.id).select().single();
+      if (error) throw error;
+      return fromDbObject(data);
+    }
+
+    async function dbDeleteAccount(id){
+      const client = window.__supabase;
+      if (!client) throw new Error('Supabase no inicializado');
+      const { error } = await client.from('netflix_accounts').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    }
+
+
+
+    // Fecha helpers (copiados)
+    function formatDateForInput(date){ if(!date) return ''; const d = new Date(date); if(isNaN(d.getTime())) return ''; const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+    function formatDate(date){ if(!date) return ''; const d = new Date(date+'T00:00:00'); if(isNaN(d.getTime())) return ''; const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); return `${day}/${m}/${y}`; }
+    function calculatePaymentDate(purchaseDate){ if(!purchaseDate) return ''; const d=new Date(purchaseDate+'T00:00:00'); d.setMonth(d.getMonth()+1); return formatDateForInput(d); }
+    function calculateExpiryDate(purchaseDate,durationMonths){ if(!purchaseDate) return ''; const d=new Date(purchaseDate+'T00:00:00'); d.setMonth(d.getMonth()+parseInt(durationMonths)); return formatDateForInput(d); }
+    function calculateDaysToPayment(paymentDateString){ if(!paymentDateString) return {display:'No definido', days:null, statusClass:'normal'}; const p=new Date(paymentDateString+'T00:00:00'); const t=new Date(); p.setHours(0,0,0,0); t.setHours(0,0,0,0); const diff=Math.ceil((p.getTime()-t.getTime())/(1000*60*60*24)); if(diff<0) return {display:'Atrasado', days:diff, statusClass:'vencida'}; if(diff===0) return {display:'HOY', days:diff, statusClass:'alerta'}; if(diff<=3) return {display:diff+' días', days:diff, statusClass:'alerta'}; return {display:diff+' días', days:diff, statusClass:'normal'}; }
+    function calculateDaysRemaining(expiryDateString){ if(!expiryDateString) return {display:'No definido', days:null, statusClass:'normal'}; const e=new Date(expiryDateString+'T00:00:00'); const t=new Date(); e.setHours(0,0,0,0); t.setHours(0,0,0,0); const diff=Math.ceil((e.getTime()-t.getTime())/(1000*60*60*24)); if(diff<0) return {display:'Vencida', days:diff, statusClass:'vencida'}; if(diff<=7) return {display:diff+' días', days:diff, statusClass:'alerta'}; return {display:diff+' días', days:diff, statusClass:'normal'}; }
+
+    // Mensajes
+    function showMessage(text,isError=false){ const box=document.getElementById('message-box'); box.textContent=text; box.className='mt-3 p-3 rounded-lg text-sm'; if(isError) box.classList.add('bg-rose-800','text-rose-200'); else box.classList.add('bg-emerald-800','text-emerald-200'); box.classList.remove('hidden'); setTimeout(()=>box.classList.add('hidden'),4000); }
+
+    // Render / CRUD
+    function renderTable(accounts){ 
+      allFilteredAccounts = accounts;
+      const tbody=document.getElementById('accounts-table-body'); 
+      const counter=document.getElementById('accounts-counter'); 
+      tbody.innerHTML=''; 
+      counter && (counter.textContent = `${accounts.length} cuenta${accounts.length!==1?'s':''}`); 
+      
+      if(accounts.length===0){ 
+        tbody.innerHTML='<tr><td colspan="8" class="text-center py-8 muted">No se encontraron cuentas.</td></tr>'; 
+        document.getElementById('pagination-controls').classList.add('hidden');
+        return; 
+      }
+      
+      // Mostrar controles de paginación
+      document.getElementById('pagination-controls').classList.remove('hidden');
+      
+      // Calcular paginación
+      const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(accounts.length / itemsPerPage);
+      currentPage = Math.min(currentPage, totalPages); // Ajustar si estamos fuera de rango
+      currentPage = Math.max(1, currentPage); // Asegurar que sea al menos 1
+      
+      const startIndex = itemsPerPage === 'all' ? 0 : (currentPage - 1) * itemsPerPage;
+      const endIndex = itemsPerPage === 'all' ? accounts.length : startIndex + itemsPerPage;
+      const paginatedAccounts = accounts.slice(startIndex, endIndex);
+      
+      // Renderizar filas
+      paginatedAccounts.forEach(account=>{ 
+        const daysInfo=calculateDaysRemaining(account.fechaCaducidad); 
+        const paymentInfo=calculateDaysToPayment(account.fechaPago); 
+        
+        const row=document.createElement('tr'); 
+        if(daysInfo.statusClass==='vencida' || paymentInfo.statusClass==='vencida') row.className='vencida'; 
+        else if(daysInfo.statusClass==='alerta' || paymentInfo.statusClass==='alerta') row.className='alerta'; 
+        else row.className='normal'; 
+        
+        // Determinar el badge de estado
+        let estadoBadge = '';
+        if(daysInfo.statusClass==='vencida' || paymentInfo.statusClass==='vencida') {
+          estadoBadge = '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-rose-600/20 text-rose-300">🔴 Vencida</span>';
+        } else if(daysInfo.statusClass==='alerta' || paymentInfo.statusClass==='alerta') {
+          estadoBadge = '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-amber-600/20 text-amber-300">⚠️ Alerta</span>';
+        } else {
+          estadoBadge = '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-emerald-600/20 text-emerald-300">✓ Activa</span>';
+        }
+        
+        // Estilo para días de pago
+        let diasPagoClass = 'text-sm';
+        if(paymentInfo.statusClass === 'vencida') diasPagoClass += ' text-rose-400 font-bold';
+        else if(paymentInfo.statusClass === 'alerta') diasPagoClass += ' text-amber-400 font-bold';
+        else diasPagoClass += ' text-emerald-400';
+        
+        row.innerHTML = `
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+            <button onclick="showAccountDetails('${account.id}')" class="text-cyan-300 hover:text-cyan-100 font-mono underline">
+              ${account.displayId||account.id}
+            </button>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold">${account.propietario}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm">${account.servicio||'-'}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-emerald-300">$${(account.precio||0).toFixed(2)}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm">${formatDate(account.fechaCaducidad)}</td>
+          <td class="px-6 py-4 whitespace-nowrap ${diasPagoClass}">${paymentInfo.display}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm">${estadoBadge}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+            <div class="flex gap-2">
+              <button onclick="showAccountDetails('${account.id}')" class="text-blue-300 hover:text-white px-2 py-1 rounded" title="Ver Detalles">👁️</button>
+              <button onclick="openNotificationModal('${account.id}')" class="text-green-300 hover:text-white px-2 py-1 rounded" title="Notificar por WhatsApp">📱</button>
+              <button onclick="editAccount('${account.id}')" class="text-cyan-300 hover:text-white px-2 py-1 rounded" title="Editar">✏️</button>
+              <button onclick="payAccount('${account.id}')" class="text-emerald-300 hover:text-white px-2 py-1 rounded" title="Registrar Pago">💰</button>
+              <button onclick="renewAccount('${account.id}')" class="text-violet-300 hover:text-white px-2 py-1 rounded" title="Renovar">🔄</button>
+              <button onclick="deleteAccount('${account.id}')" class="text-rose-300 hover:text-white px-2 py-1 rounded" title="Eliminar">🗑️</button>
+            </div>
+          </td>
+        `; 
+        tbody.appendChild(row); 
+      });
+      
+      // Actualizar controles de paginación
+      updatePaginationControls(totalPages, startIndex + 1, endIndex);
+    }
+    
+    function updatePaginationControls(totalPages, startItem, endItem) {
+      const pageInfo = document.getElementById('page-info');
+      const pageNumbers = document.getElementById('page-numbers');
+      const btnFirst = document.getElementById('btn-first-page');
+      const btnPrev = document.getElementById('btn-prev-page');
+      const btnNext = document.getElementById('btn-next-page');
+      const btnLast = document.getElementById('btn-last-page');
+      
+      // Actualizar información
+      if(itemsPerPage === 'all') {
+        pageInfo.textContent = `Mostrando todas las cuentas (${allFilteredAccounts.length})`;
+      } else {
+        pageInfo.textContent = `Mostrando ${startItem}-${endItem} de ${allFilteredAccounts.length}`;
+      }
+      
+      // Deshabilitar/habilitar botones
+      btnFirst.disabled = currentPage === 1;
+      btnPrev.disabled = currentPage === 1;
+      btnNext.disabled = currentPage === totalPages;
+      btnLast.disabled = currentPage === totalPages;
+      
+      // Renderizar números de página
+      pageNumbers.innerHTML = '';
+      if(itemsPerPage !== 'all') {
+        const maxButtons = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+        let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+        
+        if(endPage - startPage < maxButtons - 1) {
+          startPage = Math.max(1, endPage - maxButtons + 1);
+        }
+        
+        for(let i = startPage; i <= endPage; i++) {
+          const btn = document.createElement('button');
+          btn.textContent = i;
+          btn.className = i === currentPage 
+            ? 'px-3 py-2 rounded-lg bg-cyan-500/30 text-cyan-300 font-bold text-sm'
+            : 'px-3 py-2 rounded-lg glass hover:bg-white/10 transition-all text-sm';
+          btn.onclick = () => goToPage(i);
+          pageNumbers.appendChild(btn);
+        }
+      }
+    }
+    
+    function goToPage(page) {
+      currentPage = page;
+      renderTable(allFilteredAccounts);
+    }
+    
+    function setupPagination() {
+      document.getElementById('items-per-page').addEventListener('change', (e) => {
+        const value = e.target.value;
+        itemsPerPage = value === 'all' ? 'all' : parseInt(value);
+        currentPage = 1;
+        renderTable(allFilteredAccounts);
+      });
+      
+      document.getElementById('btn-first-page').addEventListener('click', () => {
+        if(currentPage > 1) {
+          currentPage = 1;
+          renderTable(allFilteredAccounts);
+        }
+      });
+      
+      document.getElementById('btn-prev-page').addEventListener('click', () => {
+        if(currentPage > 1) {
+          currentPage--;
+          renderTable(allFilteredAccounts);
+        }
+      });
+      
+      document.getElementById('btn-next-page').addEventListener('click', () => {
+        const totalPages = Math.ceil(allFilteredAccounts.length / itemsPerPage);
+        if(currentPage < totalPages) {
+          currentPage++;
+          renderTable(allFilteredAccounts);
+        }
+      });
+      
+      document.getElementById('btn-last-page').addEventListener('click', () => {
+        const totalPages = Math.ceil(allFilteredAccounts.length / itemsPerPage);
+        if(currentPage < totalPages) {
+          currentPage = totalPages;
+          renderTable(allFilteredAccounts);
+        }
+      });
+    }
+
+    function getActiveFilters(){ return { propietario: document.getElementById('filter-propietario').value.toLowerCase().trim(), diasRenovacion: document.getElementById('filter-dias-renovacion').value, pago: document.getElementById('filter-pago').value, notas: document.getElementById('filter-notas').value.toLowerCase().trim(), fechaCompra: document.getElementById('filter-fecha-compra').value, id: document.getElementById('filter-id').value.toLowerCase().trim(), ordenar: document.getElementById('filter-ordenar').value }; }
+    function sortAccounts(accounts, sortBy){ return accounts.sort((a,b)=>{ switch(sortBy){ case 'pago': return new Date(a.fechaPago||'9999-12-31') - new Date(b.fechaPago||'9999-12-31'); case 'propietario': return (a.propietario||'').localeCompare(b.propietario||''); case 'precio': return (a.precio||0)-(b.precio||0); case 'compra': return new Date(b.fechaCompra||'0000-01-01') - new Date(a.fechaCompra||'0000-01-01'); default: const daysA = calculateDaysRemaining(a.fechaCaducidad).days; const daysB = calculateDaysRemaining(b.fechaCaducidad).days; if(daysA<0 && daysB>=0) return -1; if(daysB<0 && daysA>=0) return 1; return (daysA||0)-(daysB||0); } }); }
+    function filterAccounts(accounts){ const filters=getActiveFilters(); return sortAccounts(accounts.filter(account=>{ if(filters.propietario && !account.propietario.toLowerCase().includes(filters.propietario)) return false; if(filters.diasRenovacion){ const days=calculateDaysRemaining(account.fechaCaducidad).days; switch(filters.diasRenovacion){ case 'vencidas': if(days>=0) return false; break; case 'hoy': if(days!==0) return false; break; case '1-3': if(days<1||days>3) return false; break; case '4-7': if(days<4||days>7) return false; break; case '8-15': if(days<8||days>15) return false; break; case '16-30': if(days<16||days>30) return false; break; case '30+': if(days<=30) return false; break; } } if(filters.pago){ const pdays = calculateDaysToPayment(account.fechaPago).days; switch(filters.pago){ case 'atrasado': if(pdays===null||pdays>=0) return false; break; case 'hoy': if(pdays!==0) return false; break; case 'proximo': if(pdays===null||pdays<1||pdays>3) return false; break; } } if(filters.notas && account.notas && !account.notas.toLowerCase().includes(filters.notas)) return false; if(filters.fechaCompra && account.fechaCompra){ if(account.fechaCompra.substring(0,7)!==filters.fechaCompra) return false; } if(filters.id){ const accountId=(account.displayId||account.id||'').toLowerCase(); if(!accountId.includes(filters.id)) return false; } return true; }), document.getElementById('filter-ordenar').value); }
+    function updateFilterSummary(total, filteredCount){ const el=document.getElementById('filter-summary'); const filters=getActiveFilters(); const hasActive = filters.propietario||filters.pago||filters.diasRenovacion||filters.notas; if(hasActive){ el.innerHTML = `📊 Mostrando ${filteredCount} de ${total} cuentas`; el.classList.remove('hidden'); } else el.classList.add('hidden'); }
+    function setupFilters(){ const filterInputs=[document.getElementById('filter-propietario'), document.getElementById('filter-dias-renovacion'), document.getElementById('filter-pago'), document.getElementById('filter-notas'), document.getElementById('filter-fecha-compra'), document.getElementById('filter-id'), document.getElementById('filter-ordenar')]; function updateStyles(){ filterInputs.forEach(i=> i && (i.value.trim()? i.classList.add('filter-active') : i.classList.remove('filter-active'))); } filterInputs.forEach(i=>{ if(!i) return; i.addEventListener('input', ()=>{ updateStyles(); loadAndRenderAccounts(); }); i.addEventListener('change', ()=>{ updateStyles(); loadAndRenderAccounts(); }); }); document.getElementById('clear-filters').addEventListener('click', ()=>{ filterInputs.forEach(i=>{ if(i && i.id!=='filter-ordenar'){ i.value=''; i.classList.remove('filter-active'); } }); loadAndRenderAccounts(); }); const secondRow=document.getElementById('filters-second-row'); if(secondRow) secondRow.style.display='none'; document.getElementById('toggle-filters').addEventListener('click', ()=>{ const btn=document.getElementById('toggle-filters'); if(secondRow.style.display==='none'){ secondRow.style.display='grid'; btn.innerHTML='⬆️ Ocultar Filtros Avanzados'; } else { secondRow.style.display='none'; btn.innerHTML='⚙️ Mostrar Filtros Avanzados'; } }); }
+
+    // CRUD orchestration
+    async function loadAndRenderAccounts(){
+      let all = [];
+      try{ all = await dbFetchAccounts(); }
+      catch(e){ console.error(e); all = []; }
+      const filtered = filterAccounts(all);
+      updateFilterSummary(all.length, filtered.length);
+      renderTable(filtered);
+      updateDashboardMetrics(all);
+    }
+
+    function setupForm(){ document.getElementById('add-account-form').addEventListener('submit', async (e)=>{ e.preventDefault(); const form=e.target; const fechaCompra=form['fecha-compra'].value; const duracion=form['duracion-meses'].value; const fechaCaducidad=calculateExpiryDate(fechaCompra,duracion); const newAccount={ id: generateId(), propietario: form['propietario'].value.trim(), correo: form['correo'].value.trim(), telefono: form['telefono'].value.trim(), fechaCompra, fechaPago: form['fecha-pago'].value, precio: parseFloat(form['precio'].value||0), fechaCaducidad, duracionMeses: parseInt(duracion||1), notas: form['notas'].value.trim(), displayId:`NET-${Date.now().toString().slice(-4)}-${Math.floor(Math.random()*100)}` };
+    // Capturar servicio (si 'other', tomar el texto del input)
+    const servicioVal = (form['servicio'] && form['servicio'].value === 'other') ? (form['servicio-otro'].value.trim() || 'Otro') : (form['servicio'] ? form['servicio'].value : null);
+    newAccount.servicio = servicioVal;
+        
+        // Supabase genera uuid, no enviamos id local
+        delete newAccount.id; newAccount.userId = currentUserId;
+        if(isNaN(newAccount.precio)){ showMessage('Error: Por favor, ingrese un precio válido.', true); return; }
+        try{
+          const inserted = await dbInsertAccount(newAccount);
+          await loadAndRenderAccounts(); showMessage('¡Cuenta agregada exitosamente!'); form.reset();
+        } catch(err){ showMessage(err.message||String(err), true); }
+    }); }
+
+    function setupAutoCalculations(){ const fechaCompraInput=document.getElementById('fecha-compra'); const duracionSelect=document.getElementById('duracion-meses'); const fechaPagoInput=document.getElementById('fecha-pago'); function updateCalculatedDates(){ const fc=fechaCompraInput.value; const d=duracionSelect.value; if(fc){ fechaPagoInput.value=calculatePaymentDate(fc); if(d){ const fechaCad=calculateExpiryDate(fc,d); let info=document.getElementById('expiry-info'); if(!info){ info=document.createElement('div'); info.id='expiry-info'; info.className='mt-2 text-sm text-cyan-300 font-medium'; duracionSelect.parentNode.appendChild(info); } info.innerHTML=`<strong>Fecha de caducidad calculada:</strong> ${formatDate(fechaCad)}`; } } } fechaCompraInput.addEventListener('change', updateCalculatedDates); duracionSelect.addEventListener('change', updateCalculatedDates); const editPaymentButton=document.getElementById('edit-payment-date'); editPaymentButton.addEventListener('click', ()=>{ if(fechaPagoInput.readOnly){ fechaPagoInput.readOnly=false; fechaPagoInput.classList.remove('cursor-not-allowed'); editPaymentButton.textContent='automático'; } else { updateCalculatedDates(); fechaPagoInput.readOnly=true; editPaymentButton.textContent='editar'; } }); }
+
+    // Manejo del campo 'servicio' y su opción 'Otro...'
+    function setupServiceField(){
+      const servicio = document.getElementById('servicio');
+      const servicioOtro = document.getElementById('servicio-otro');
+      if(servicio && servicioOtro){
+        const toggle = ()=>{ if(servicio.value==='other'){ servicioOtro.style.display='block'; servicioOtro.focus(); } else { servicioOtro.style.display='none'; servicioOtro.value=''; } };
+        servicio.addEventListener('change', toggle);
+        toggle();
+      }
+
+      const editServicio = document.getElementById('edit-servicio');
+      const editServicioOtro = document.getElementById('edit-servicio-otro');
+      if(editServicio && editServicioOtro){
+        const toggleE = ()=>{ if(editServicio.value==='other'){ editServicioOtro.style.display='block'; } else { editServicioOtro.style.display='none'; editServicioOtro.value=''; } };
+        editServicio.addEventListener('change', toggleE);
+        toggleE();
+      }
+    }
+
+  function setupEditForm(){ document.getElementById('edit-account-form').addEventListener('submit', async (e)=>{ e.preventDefault(); const form=e.target; const accountId=form['edit-account-id'].value; const servicioVal = (form['edit-servicio'] && form['edit-servicio'].value === 'other') ? (form['edit-servicio-otro'].value.trim() || 'Otro') : (form['edit-servicio'] ? form['edit-servicio'].value : null); const updated={ id: accountId, propietario: form['edit-propietario'].value.trim(), correo: form['edit-correo'].value.trim(), telefono: form['edit-telefono'].value.trim(), servicio: servicioVal, fechaCompra: form['edit-fecha-compra'].value, fechaPago: form['edit-fecha-pago'].value, precio: parseFloat(form['edit-precio'].value), fechaCaducidad: form['edit-fecha-caducidad'].value, notas: form['edit-notas'].value.trim() }; if(isNaN(updated.precio)){ showMessage('Error: Por favor, ingrese un precio válido.', true); return; } try{ await dbUpdateAccount(updated); await loadAndRenderAccounts(); closeEditModal(); showMessage('¡Cuenta actualizada exitosamente!'); } catch(err){ showMessage(err.message||String(err), true); } }); document.getElementById('edit-modal').addEventListener('click', function(e){ if(e.target===this) closeEditModal(); }); }
+
+    async function deleteAccount(accountId){ if(!window.confirm('¿Estás seguro de que quieres eliminar esta cuenta?')) return; try{ await dbDeleteAccount(accountId); await loadAndRenderAccounts(); showMessage('Cuenta eliminada correctamente.'); } catch(err){ showMessage(err.message||String(err), true); } }
+
+    async function editAccount(accountId){ 
+      try{ 
+        const all = await dbFetchAccounts(); 
+        const account = all.find(a=>a.id===accountId); 
+        if(!account){ showMessage('Cuenta no encontrada.', true); return; } 
+        
+        document.getElementById('edit-account-id').value=account.id; 
+        document.getElementById('edit-propietario').value=account.propietario||''; 
+        document.getElementById('edit-correo').value=account.correo||''; 
+        document.getElementById('edit-telefono').value=account.telefono||''; 
+        document.getElementById('edit-fecha-compra').value=account.fechaCompra||''; 
+        document.getElementById('edit-fecha-pago').value=account.fechaPago||''; 
+        document.getElementById('edit-precio').value=account.precio||''; 
+        document.getElementById('edit-fecha-caducidad').value=account.fechaCaducidad||''; 
+        document.getElementById('edit-notas').value=account.notas||'';
+        
+        // Configurar servicio
+        const editServicio = document.getElementById('edit-servicio');
+        const editServicioOtro = document.getElementById('edit-servicio-otro');
+        const servicios = ['netflix', 'disney', 'hbo'];
+        if(servicios.includes(account.servicio?.toLowerCase())) {
+          editServicio.value = account.servicio.toLowerCase();
+          editServicioOtro.style.display = 'none';
+          editServicioOtro.value = '';
+        } else {
+          editServicio.value = 'other';
+          editServicioOtro.style.display = 'block';
+          editServicioOtro.value = account.servicio || '';
+        }
+        
+        document.getElementById('edit-modal').classList.remove('hidden'); 
+      } catch(err){ showMessage(err.message||String(err), true); } 
+    }
+
+    function closeEditModal(){ document.getElementById('edit-modal').classList.add('hidden'); }
+
+    async function payAccount(accountId){ 
+      if(!window.confirm('¿Confirmar pago? Esto avanzará la fecha de pago 1 mes calendario.')) return; 
+      
+      try{ 
+        const all = await dbFetchAccounts(); 
+        const account = all.find(a=>a.id===accountId); 
+        
+        if(!account) { 
+          showMessage('Cuenta no encontrada.', true); 
+          return; 
+        } 
+        
+        // Actualizar fecha de pago (aumentar 1 mes)
+        if(account.fechaPago){ 
+          const d=new Date(account.fechaPago+'T00:00:00'); 
+          d.setMonth(d.getMonth()+1); 
+          account.fechaPago = formatDateForInput(d); 
+        } else { 
+          const d=new Date(); 
+          d.setMonth(d.getMonth()+1); 
+          account.fechaPago = formatDateForInput(d); 
+        }
+        
+        // 🔥 NUEVO: Marcar pago como confirmado en la base de datos
+        account.pagoConfirmado = true;
+        
+        await dbUpdateAccount(account); 
+        
+        // 🔥 NUEVO: Confirmar pago en el sistema de notificaciones
+        try {
+          const { data: { user } } = await window.__supabase.auth.getUser();
+          if (user) {
+            await window.__supabase.rpc('confirmar_pago_cuenta', {
+              p_account_id: accountId,
+              p_user_id: user.id
+            });
+            console.log('✅ Pago confirmado en sistema de notificaciones');
+          }
+        } catch (notifErr) {
+          console.warn('⚠️ No se pudo confirmar en notificaciones (puede que no esté configurado):', notifErr);
+        }
+        
+        await loadAndRenderAccounts(); 
+        showMessage(`✅ ¡Pago registrado! Nueva fecha: ${formatDate(account.fechaPago)}.`); 
+        
+      } catch(err){ 
+        showMessage(err.message||String(err), true); 
+      } 
+    }
+
+    async function renewAccount(accountId){ if(!window.confirm('¿Confirmar renovación? Esto extenderá la caducidad según la duración original por meses calendario.')) return; try{ const all = await dbFetchAccounts(); const account = all.find(a=>a.id===accountId); if(!account){ showMessage('Cuenta no encontrada.', true); return; } const duration = account.duracionMeses||1; const d = new Date(account.fechaCaducidad+'T00:00:00'); d.setMonth(d.getMonth()+duration); account.fechaCaducidad = formatDateForInput(d); await dbUpdateAccount(account); await loadAndRenderAccounts(); showMessage(`¡Cuenta renovada por ${duration} meses! Nueva fecha de caducidad: ${formatDate(account.fechaCaducidad)}`); } catch(err){ showMessage(err.message||String(err), true); } }
+    window.deleteAccount=deleteAccount; window.editAccount=editAccount; window.closeEditModal=closeEditModal; window.payAccount=payAccount; window.renewAccount=renewAccount;
+
+    let chartMonthly=null, chartStatus=null;
+    function updateDashboardMetrics(allAccounts){ const total=allAccounts.length; const revenue=allAccounts.reduce((s,a)=> s+(parseFloat(a.precio)||0),0); const upcoming=allAccounts.filter(a=>{ const days=calculateDaysRemaining(a.fechaCaducidad).days; return days!==null && days<=7 && days>=0; }).length; const elTotal=document.getElementById('metric-total'); if(elTotal) elTotal.textContent=total; const elRev=document.getElementById('metric-revenue'); if(elRev) elRev.textContent=`$${revenue.toFixed(2)}`; const elUp=document.getElementById('metric-upcoming'); if(elUp) elUp.textContent=upcoming; if(!document.getElementById('chart-monthly')) return; const months=[]; const now=new Date(); for(let i=5;i>=0;i--){ const d=new Date(now.getFullYear(), now.getMonth()-i,1); months.push(`${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`); } const monthlyCounts=months.map(m=> allAccounts.filter(a=> a.fechaCompra && (a.fechaCompra.substring(5,7)+'/'+a.fechaCompra.substring(0,4))===m).length); const statusCounts={vencida:0, alerta:0, normal:0}; allAccounts.forEach(a=>{ const p=calculateDaysToPayment(a.fechaPago); const r=calculateDaysRemaining(a.fechaCaducidad); const worst=[p.statusClass, r.statusClass].includes('vencida')? 'vencida' : ([p.statusClass, r.statusClass].includes('alerta')? 'alerta':'normal'); statusCounts[worst]++; }); if(chartMonthly) { chartMonthly.data.labels=months; chartMonthly.data.datasets[0].data=monthlyCounts; chartMonthly.update(); } else { const ctx=document.getElementById('chart-monthly').getContext('2d'); chartMonthly=new Chart(ctx,{ type:'bar', data:{ labels:months, datasets:[{ label:'Cuentas por mes', data:monthlyCounts, backgroundColor:'#06b6d4' }] }, options:{ responsive:true, plugins:{legend:{display:false}} } }); } if(chartStatus) { chartStatus.data.datasets[0].data=[statusCounts.vencida,statusCounts.alerta,statusCounts.normal]; chartStatus.update(); } else { const ctx2=document.getElementById('chart-status').getContext('2d'); chartStatus=new Chart(ctx2,{ type:'doughnut', data:{ labels:['Vencidas','Alerta','Normal'], datasets:[{ data:[statusCounts.vencida,statusCounts.alerta,statusCounts.normal], backgroundColor:['#ef4444','#f59e0b','#06b6d4'] }] } }); }
+    }
+
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      // Proteger ruta: requerir sesión
+      try{ if(window.__auth){ const ok = await window.__auth.requireAuth(); if(!ok) return; } }catch(e){}
+      const sel=document.getElementById('filter-fecha-compra'); if(sel){ const now=new Date(); for(let i=0;i<12;i++){ const d=new Date(now.getFullYear(), now.getMonth()-i,1); const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; const opt=document.createElement('option'); opt.value=val; opt.textContent = `${d.toLocaleString('es',{month:'long'})} ${d.getFullYear()}`; sel.appendChild(opt); } }
+      await initSession(); setupForm(); setupAutoCalculations(); setupEditForm(); setupServiceField(); setupFilters(); setupPagination(); await loadAndRenderAccounts();
+    });
+
+
+    // ----- Perfil de usuario: modal y acciones -----
+    function openProfileModal(){ document.getElementById('profile-modal').classList.remove('hidden'); document.getElementById('profile-msg').classList.add('hidden'); loadProfileInfo(); }
+    function closeProfileModal(){ document.getElementById('profile-modal').classList.add('hidden'); }
+
+    async function loadProfileInfo(){
+      const emailEl = document.getElementById('profile-email');
+      emailEl.textContent = 'Cargando...';
+      try{
+        const { data } = await window.__supabase.auth.getUser();
+        const user = data?.user || null;
+        emailEl.textContent = user?.email || 'Sin correo';
+      }catch(err){ console.error(err); emailEl.textContent = 'Error al cargar'; }
+    }
+
+    // ----- Modal de Detalles de Cuenta -----
+    async function showAccountDetails(accountId) {
+      try {
+        const all = await dbFetchAccounts();
+        const account = all.find(a => a.id === accountId);
+        if (!account) {
+          showMessage('Cuenta no encontrada.', true);
+          return;
+        }
+
+        const daysInfo = calculateDaysRemaining(account.fechaCaducidad);
+        const paymentInfo = calculateDaysToPayment(account.fechaPago);
+
+        // Llenar el modal con los datos
+        document.getElementById('detail-id').textContent = account.displayId || account.id;
+        document.getElementById('detail-propietario').textContent = account.propietario || '-';
+        document.getElementById('detail-servicio').textContent = account.servicio || '-';
+        document.getElementById('detail-correo').textContent = account.correo || '-';
+        document.getElementById('detail-telefono').textContent = account.telefono || '-';
+        document.getElementById('detail-precio').textContent = '$' + (account.precio || 0).toFixed(2);
+        document.getElementById('detail-fecha-compra').textContent = formatDate(account.fechaCompra) || '-';
+        document.getElementById('detail-fecha-pago').textContent = formatDate(account.fechaPago) || '-';
+        document.getElementById('detail-fecha-caducidad').textContent = formatDate(account.fechaCaducidad) || '-';
+        
+        // Mostrar días con colores
+        const diasPagoEl = document.getElementById('detail-dias-pago');
+        diasPagoEl.textContent = paymentInfo.display;
+        diasPagoEl.className = 'font-bold text-lg';
+        if (paymentInfo.statusClass === 'vencida') diasPagoEl.classList.add('text-rose-400');
+        else if (paymentInfo.statusClass === 'alerta') diasPagoEl.classList.add('text-amber-400');
+        else diasPagoEl.classList.add('text-emerald-400');
+
+        const diasRenovacionEl = document.getElementById('detail-dias-renovacion');
+        diasRenovacionEl.textContent = daysInfo.display;
+        diasRenovacionEl.className = 'font-bold text-lg';
+        if (daysInfo.statusClass === 'vencida') diasRenovacionEl.classList.add('text-rose-400');
+        else if (daysInfo.statusClass === 'alerta') diasRenovacionEl.classList.add('text-amber-400');
+        else diasRenovacionEl.classList.add('text-emerald-400');
+
+        document.getElementById('detail-notas').textContent = account.notas || 'Sin notas';
+
+        // Configurar botones de acción
+        document.getElementById('detail-btn-notify').onclick = () => {
+          closeDetailsModal();
+          openNotificationModal(accountId);
+        };
+        document.getElementById('detail-btn-edit').onclick = () => {
+          closeDetailsModal();
+          editAccount(accountId);
+        };
+        document.getElementById('detail-btn-pay').onclick = () => {
+          closeDetailsModal();
+          payAccount(accountId);
+        };
+        document.getElementById('detail-btn-renew').onclick = () => {
+          closeDetailsModal();
+          renewAccount(accountId);
+        };
+
+        // Mostrar modal
+        document.getElementById('details-modal').classList.remove('hidden');
+      } catch (err) {
+        showMessage(err.message || String(err), true);
+      }
+    }
+
+    function closeDetailsModal() {
+      document.getElementById('details-modal').classList.add('hidden');
+    }
+
+    // Cerrar modal al hacer clic fuera
+    document.getElementById('details-modal')?.addEventListener('click', function(e) {
+      if (e.target === this) closeDetailsModal();
+    });
+
+    // Exponer funciones globalmente
+    window.showAccountDetails = showAccountDetails;
+    window.closeDetailsModal = closeDetailsModal;
+
+    // Cambiar contraseña (Supabase -> updateUser)
+    document.getElementById('change-password-form').addEventListener('submit', async (e)=>{
+      e.preventDefault(); const msgEl = document.getElementById('profile-msg'); msgEl.className='text-sm mt-2 hidden'; const p1 = document.getElementById('new-password').value; const p2 = document.getElementById('confirm-password').value; if(!p1 || p1.length<6){ msgEl.textContent='La contraseña debe tener al menos 6 caracteres.'; msgEl.classList.remove('hidden'); return; } if(p1!==p2){ msgEl.textContent='Las contraseñas no coinciden.'; msgEl.classList.remove('hidden'); return; }
+      try{
+        const { data, error } = await window.__supabase.auth.updateUser({ password: p1 });
+        if (error) throw error;
+        msgEl.textContent = 'Contraseña actualizada correctamente.'; msgEl.classList.remove('hidden');
+        // limpiar inputs
+        document.getElementById('new-password').value=''; document.getElementById('confirm-password').value='';
+      }catch(err){ msgEl.textContent = err.message || String(err); msgEl.classList.remove('hidden'); }
+    });
+
+    // Vincular botón perfil
+    document.getElementById('btn-profile').addEventListener('click', ()=> openProfileModal());
+
+    // ----- Sistema de Notificaciones WhatsApp -----
+    let currentNotificationAccount = null;
+    let selectedNotificationType = null;
+
+    // Función para cargar plantillas desde localStorage o usar las por defecto
+    function loadMessageTemplates() {
+      const saved = localStorage.getItem('whatsapp_templates');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.warn('Error al cargar plantillas guardadas, usando las por defecto');
+          return null;
+        }
+      }
+      return null;
+    }
+
+    // Función para procesar una plantilla con los datos de la cuenta
+    function processTemplate(templateString, account) {
+      if (!templateString) return '';
+      
+      return templateString
+        .replace(/{propietario}/g, account.propietario || 'Cliente')
+        .replace(/{servicio}/g, account.servicio || 'Netflix')
+        .replace(/{precio}/g, '$' + (account.precio || 0))
+        .replace(/{fechaPago}/g, formatDate(account.fechaPago))
+        .replace(/{fechaCaducidad}/g, formatDate(account.fechaCaducidad));
+    }
+
+    // Plantillas por defecto (se usan si no hay personalizadas)
+    const defaultTemplates = {
+      pago_3dias: `Hola {propietario},
+
+Te recordamos que tu pago de {servicio} vence en *3 días* ({fechaPago}).
+
+💵 Monto: {precio}
+
+Por favor realiza tu pago a tiempo para evitar interrupciones en el servicio.
+
+¡Gracias por tu preferencia! 😊`,
+
+      pago_2dias: `Hola {propietario},
+
+⚠️ Tu pago de {servicio} vence en *2 días* ({fechaPago}).
+
+💵 Monto: {precio}
+
+Te pedimos realizar el pago pronto para mantener tu servicio activo.
+
+¡Gracias! 🙏`,
+
+      pago_1dia: `Hola {propietario},
+
+🚨 *IMPORTANTE:* Tu pago de {servicio} vence *MAÑANA* ({fechaPago}).
+
+💵 Monto: {precio}
+
+Por favor realiza tu pago cuanto antes para evitar la suspensión del servicio.
+
+Gracias por tu atención.`,
+
+      pago_hoy: `Hola {propietario},
+
+🔴 *URGENTE:* Tu pago de {servicio} vence *HOY* ({fechaPago}).
+
+💵 Monto: {precio}
+
+Es necesario que realices el pago hoy mismo para mantener tu servicio activo.
+
+¡Gracias!`,
+
+      pago_atrasado: `Hola {propietario},
+
+Notamos que tu pago de {servicio} está *atrasado* desde {fechaPago}.
+
+💵 Monto: {precio}
+
+Para reactivar tu servicio, te pedimos regularizar tu pago lo antes posible.
+
+Quedamos atentos. Gracias.`,
+
+      suspension: `Hola {propietario},
+
+Lamentamos informarte que tu acceso a {servicio} ha sido *suspendido* por falta de pago.
+
+💵 Monto pendiente: {precio}
+📅 Fecha de pago vencida: {fechaPago}
+
+Para reactivar tu servicio, por favor realiza el pago pendiente.
+
+Gracias por tu comprensión.`,
+
+      renovacion_proxima: `Hola {propietario},
+
+Te informamos que tu cuenta de {servicio} está próxima a vencer el *{fechaCaducidad}*.
+
+Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
+
+💵 Precio de renovación: {precio}
+
+¡Gracias por confiar en nosotros! 😊`,
+
+      confirmacion_pago: `Hola {propietario},
+
+✅ *¡Pago confirmado!*
+
+Hemos recibido tu pago de *{precio}* por el servicio de {servicio}.
+
+📅 Próximo pago: {fechaPago}
+📅 Servicio válido hasta: {fechaCaducidad}
+
+¡Gracias por tu pago puntual! 🎉`,
+
+      personalizado: '' // El usuario escribirá su propio mensaje
+    };
+
+    // Cargar plantillas (personalizadas o por defecto)
+    const customTemplates = loadMessageTemplates();
+    const messageTemplates = customTemplates || defaultTemplates;
+
+    // Crear función generadora de mensajes
+    const getMessageForType = (type, account) => {
+      if (type === 'personalizado') return '';
+      const template = messageTemplates[type] || defaultTemplates[type] || '';
+      return processTemplate(template, account);
+    };
+
+    async function openNotificationModal(accountId) {
+      try {
+        const all = await dbFetchAccounts();
+        const account = all.find(a => a.id === accountId);
+        if (!account) {
+          showMessage('Cuenta no encontrada.', true);
+          return;
+        }
+
+        // Validar que tenga teléfono
+        if (!account.telefono || account.telefono.trim() === '') {
+          showMessage('Esta cuenta no tiene número de teléfono registrado.', true);
+          return;
+        }
+
+        currentNotificationAccount = account;
+        selectedNotificationType = null;
+
+        // Mostrar datos del cliente
+        document.getElementById('notify-propietario').textContent = account.propietario || 'Sin nombre';
+        document.getElementById('notify-telefono').textContent = account.telefono;
+
+        // Resetear vista
+        document.getElementById('message-preview-container').classList.add('hidden');
+        document.getElementById('notification-warning').classList.add('hidden');
+        document.getElementById('send-whatsapp-btn').disabled = true;
+        document.getElementById('custom-message-container').classList.add('hidden');
+
+        // Mostrar modal
+        document.getElementById('notification-modal').classList.remove('hidden');
+      } catch (err) {
+        showMessage(err.message || String(err), true);
+      }
+    }
+
+    function closeNotificationModal() {
+      document.getElementById('notification-modal').classList.add('hidden');
+      currentNotificationAccount = null;
+      selectedNotificationType = null;
+    }
+
+    function selectNotificationType(type) {
+      if (!currentNotificationAccount) return;
+
+      selectedNotificationType = type;
+      const account = currentNotificationAccount;
+      
+      // Generar mensaje según el tipo
+      let message = '';
+      let warning = '';
+      let shouldWarn = false;
+
+      // Validaciones inteligentes para evitar envíos inadecuados
+      const paymentInfo = calculateDaysToPayment(account.fechaPago);
+      const expiryInfo = calculateDaysRemaining(account.fechaCaducidad);
+
+      switch(type) {
+        case 'pago_3dias':
+          if (paymentInfo.days === null || paymentInfo.days > 3 || paymentInfo.days < 2) {
+            warning = 'El pago no vence en 3 días. Verifica la fecha de pago antes de enviar.';
+            shouldWarn = true;
+          }
+          message = getMessageForType('pago_3dias', account);
+          break;
+
+        case 'pago_2dias':
+          if (paymentInfo.days === null || paymentInfo.days > 2 || paymentInfo.days < 1) {
+            warning = 'El pago no vence en 2 días. Verifica la fecha de pago antes de enviar.';
+            shouldWarn = true;
+          }
+          message = getMessageForType('pago_2dias', account);
+          break;
+
+        case 'pago_1dia':
+          if (paymentInfo.days === null || paymentInfo.days !== 1) {
+            warning = 'El pago no vence mañana. Verifica la fecha de pago antes de enviar.';
+            shouldWarn = true;
+          }
+          message = getMessageForType('pago_1dia', account);
+          break;
+
+        case 'pago_hoy':
+          if (paymentInfo.days === null || paymentInfo.days !== 0) {
+            warning = 'El pago no vence hoy. Verifica la fecha de pago antes de enviar.';
+            shouldWarn = true;
+          }
+          message = getMessageForType('pago_hoy', account);
+          break;
+
+        case 'pago_atrasado':
+          if (paymentInfo.days === null || paymentInfo.days >= 0) {
+            warning = 'El pago no está atrasado. Este mensaje no es apropiado.';
+            shouldWarn = true;
+          }
+          message = getMessageForType('pago_atrasado', account);
+          break;
+
+        case 'suspension':
+          if (paymentInfo.days === null || paymentInfo.days >= 0) {
+            warning = 'El pago no está atrasado. Considera si realmente debes suspender el acceso.';
+            shouldWarn = true;
+          }
+          message = getMessageForType('suspension', account);
+          break;
+
+        case 'renovacion_proxima':
+          if (expiryInfo.days === null || expiryInfo.days > 7 || expiryInfo.days < 0) {
+            warning = 'La cuenta no está próxima a vencer. Verifica la fecha de caducidad.';
+            shouldWarn = true;
+          }
+          message = getMessageForType('renovacion_proxima', account);
+          break;
+
+        case 'confirmacion_pago':
+          // Este mensaje es apropiado en cualquier momento
+          message = getMessageForType('confirmacion_pago', account);
+          break;
+
+        case 'personalizado':
+          message = '';
+          document.getElementById('custom-message-container').classList.remove('hidden');
+          document.getElementById('custom-message-input').value = '';
+          document.getElementById('custom-message-input').focus();
+          break;
+      }
+
+      // Mostrar mensaje
+      document.getElementById('message-preview').textContent = message || 'Escribe tu mensaje personalizado...';
+      document.getElementById('message-preview-container').classList.remove('hidden');
+
+      // Mostrar advertencia si es necesario
+      if (shouldWarn) {
+        document.getElementById('warning-text').textContent = warning;
+        document.getElementById('notification-warning').classList.remove('hidden');
+      } else {
+        document.getElementById('notification-warning').classList.add('hidden');
+      }
+
+      // Habilitar botón de envío
+      document.getElementById('send-whatsapp-btn').disabled = false;
+
+      // Si es personalizado, escuchar cambios en el textarea
+      if (type === 'personalizado') {
+        const textarea = document.getElementById('custom-message-input');
+        textarea.addEventListener('input', function() {
+          document.getElementById('message-preview').textContent = this.value || 'Escribe tu mensaje...';
+        });
+      }
+    }
+
+    function sendWhatsAppMessage() {
+      if (!currentNotificationAccount || !selectedNotificationType) {
+        showMessage('Por favor selecciona un tipo de notificación.', true);
+        return;
+      }
+
+      let message = '';
+      
+      if (selectedNotificationType === 'personalizado') {
+        message = document.getElementById('custom-message-input').value.trim();
+        if (!message) {
+          showMessage('Por favor escribe un mensaje.', true);
+          return;
+        }
+      } else {
+        message = getMessageForType(selectedNotificationType, currentNotificationAccount);
+      }
+
+      // Limpiar y formatear el número de teléfono
+      let phone = currentNotificationAccount.telefono.trim();
+      // Remover espacios, guiones y caracteres especiales
+      phone = phone.replace(/[\s-()]/g, '');
+      
+      // Si no tiene el símbolo +, agregarlo
+      if (!phone.startsWith('+')) {
+        phone = '+' + phone;
+      }
+
+      // Crear URL de WhatsApp
+      const encodedMessage = encodeURIComponent(message);
+      const whatsappUrl = `https://wa.me/${phone.replace('+', '')}?text=${encodedMessage}`;
+
+      // Abrir WhatsApp en nueva ventana
+      window.open(whatsappUrl, '_blank');
+
+      // Cerrar modal
+      closeNotificationModal();
+
+      // Mostrar confirmación
+      showMessage('¡WhatsApp abierto! Verifica el mensaje antes de enviar.');
+    }
+
+    // Cerrar modal al hacer clic fuera
+    document.getElementById('notification-modal')?.addEventListener('click', function(e) {
+      if (e.target === this) closeNotificationModal();
+    });
+
+    // Exponer funciones globalmente
+    window.openNotificationModal = openNotificationModal;
+    window.closeNotificationModal = closeNotificationModal;
+    window.selectNotificationType = selectNotificationType;
+    window.sendWhatsAppMessage = sendWhatsAppMessage;
+
+  </script>
+    <script src="assets/ui.js"></script>
+</body>
+</html>

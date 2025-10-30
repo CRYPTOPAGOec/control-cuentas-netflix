@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard - Control de Cuentas Netflix</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+  <style>
+    .metric-card { transition: transform 0.2s, box-shadow 0.2s; }
+    .metric-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.2); }
+    .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .status-vencida { background: rgba(239,68,68,0.2); color: #ef4444; }
+    .status-alerta { background: rgba(245,158,11,0.2); color: #f59e0b; }
+    .status-normal { background: rgba(6,182,212,0.2); color: #06b6d4; }
+    .progress-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.1); overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #06b6d4, #0891b2); transition: width 0.3s; }
+    .alert-badge { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    .icon-metric { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+    .table-row:hover { background: rgba(255,255,255,0.03); }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-6">
+  <!-- Cargar env.js de forma síncrona primero -->
+  <script src="env.js"></script>
+  <script src="assets/ui.js"></script>
+  <script src="assets/auth_guard.js"></script>
+  <div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+      <div>
+        <h1 class="text-3xl font-extrabold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Dashboard Ejecutivo</h1>
+        <p class="text-sm muted mt-1">Usuario: <span id="header-user" class="font-mono px-2 py-1 rounded glass">Cargando...</span></p>
+      </div>
+      <div class="flex gap-3 items-center flex-wrap">
+        <a href="accounts.html" class="px-4 py-2 rounded-lg glass hover:bg-white/10 transition-all">📋 Cuentas</a>
+        <button id="btn-profile" class="px-4 py-2 rounded-lg glass hover:bg-white/10 transition-all">👤 Perfil</button>
+        <a id="admin-functions-btn" href="admin.html" class="px-4 py-2 rounded-lg glass hover:bg-white/10 transition-all hidden">⚙️ Admin</a>
+        <button id="logout" class="px-4 py-2 rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-all">🚪 Salir</button>
+      </div>
+    </header>
+    
+    <!-- Theme toggle -->
+    <button id="theme-toggle" class="theme-toggle" title="Cambiar tema" aria-label="Cambiar tema"></button>
+
+    <!-- Modal Perfil -->
+    <div id="profile-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
+      <div class="glass p-6 rounded-2xl max-w-md w-full mx-4">
+        <h2 class="text-xl font-semibold mb-4">Perfil</h2>
+        <div class="mb-3 text-sm muted">Información de la cuenta</div>
+        <div class="mb-4">
+          <label class="block text-xs muted mb-1">Correo</label>
+          <div id="profile-email" class="px-3 py-2 bg-black/20 rounded text-sm font-mono">Cargando...</div>
+        </div>
+        <form id="change-password-form" class="space-y-3">
+          <div>
+            <label class="block text-xs muted mb-1">Nueva contraseña</label>
+            <input type="password" id="new-password" class="w-full p-3 rounded-lg input-futur" placeholder="Ingrese nueva contraseña">
+          </div>
+          <div>
+            <label class="block text-xs muted mb-1">Confirmar contraseña</label>
+            <input type="password" id="confirm-password" class="w-full p-3 rounded-lg input-futur" placeholder="Repite la contraseña">
+          </div>
+          <div class="flex justify-end gap-3 mt-2">
+            <button type="button" onclick="closeProfileModal()" class="px-4 py-2 border border-white/8 rounded">Cerrar</button>
+            <button type="submit" class="px-4 py-2 accent-btn rounded">Cambiar contraseña</button>
+          </div>
+          <p id="profile-msg" class="text-sm mt-2 hidden"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Alertas y Notificaciones -->
+    <div id="alerts-section" class="mb-6 space-y-3"></div>
+
+    <!-- KPIs Principales -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="glass metric-card p-5 rounded-2xl">
+        <div class="flex items-center justify-between mb-3">
+          <div class="icon-metric" style="background: rgba(6,182,212,0.15);">📊</div>
+          <div class="text-right">
+            <div class="text-sm muted">Total Cuentas</div>
+            <div id="metric-total" class="text-3xl font-bold text-cyan-400">0</div>
+          </div>
+        </div>
+        <div class="progress-bar"><div id="progress-total" class="progress-fill" style="width: 100%"></div></div>
+      </div>
+      
+      <div class="glass metric-card p-5 rounded-2xl">
+        <div class="flex items-center justify-between mb-3">
+          <div class="icon-metric" style="background: rgba(34,197,94,0.15);">💰</div>
+          <div class="text-right">
+            <div class="text-sm muted">Ingresos Totales</div>
+            <div id="metric-revenue" class="text-3xl font-bold text-green-400">$0.00</div>
+          </div>
+        </div>
+        <div class="text-xs muted">Promedio: <span id="metric-average-inline" class="text-white font-semibold">$0.00</span>/cuenta</div>
+      </div>
+      
+      <div class="glass metric-card p-5 rounded-2xl">
+        <div class="flex items-center justify-between mb-3">
+          <div class="icon-metric" style="background: rgba(245,158,11,0.15);">⚠️</div>
+          <div class="text-right">
+            <div class="text-sm muted">Vencen en 7 días</div>
+            <div id="metric-upcoming" class="text-3xl font-bold text-orange-400">0</div>
+          </div>
+        </div>
+        <div class="text-xs muted">Próximos 30d: <span id="metric-upcoming-30d-inline" class="text-white font-semibold">0</span></div>
+      </div>
+      
+      <div class="glass metric-card p-5 rounded-2xl">
+        <div class="flex items-center justify-between mb-3">
+          <div class="icon-metric" style="background: rgba(239,68,68,0.15);">🔴</div>
+          <div class="text-right">
+            <div class="text-sm muted">Vencidas</div>
+            <div id="metric-overdue" class="text-3xl font-bold text-red-400">0</div>
+          </div>
+        </div>
+        <div class="text-xs muted">Requieren atención inmediata</div>
+      </div>
+    </div>
+
+    <!-- Métricas Secundarias -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="glass p-4 rounded-xl">
+        <div class="text-xs muted mb-2">📅 Ingresos (30 días)</div>
+        <div id="metric-revenue-30d" class="text-xl font-bold text-cyan-400">$0.00</div>
+        <button id="btn-debug-30d" class="text-xs text-cyan-500 hover:text-cyan-400 mt-1">Ver detalle →</button>
+      </div>
+      
+      <div class="glass p-4 rounded-xl">
+        <div class="text-xs muted mb-2">📈 Tasa de Renovación</div>
+        <div id="metric-renewal-rate" class="text-xl font-bold text-green-400">0%</div>
+        <div class="text-xs muted mt-1">Basado en últimos 30 días</div>
+      </div>
+      
+      <div class="glass p-4 rounded-xl">
+        <div class="text-xs muted mb-2">🎯 Ocupación</div>
+        <div id="metric-occupancy" class="text-xl font-bold text-purple-400">0%</div>
+        <div class="text-xs muted mt-1">Cuentas activas vs total</div>
+      </div>
+      
+      <div class="glass p-4 rounded-xl">
+        <div class="text-xs muted mb-2">⏱️ Promedio de Vida</div>
+        <div id="metric-avg-lifetime" class="text-xl font-bold text-blue-400">0 días</div>
+        <div class="text-xs muted mt-1">Desde fecha de compra</div>
+      </div>
+    </div>
+
+    <!-- Top Propietarios -->
+    <div class="glass p-5 rounded-2xl mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold">🏆 Top 5 Propietarios</h2>
+        <span class="text-xs muted">Por número de cuentas</span>
+      </div>
+      <div id="metric-topowners-container" class="space-y-2">
+        <div class="text-sm muted">Cargando...</div>
+      </div>
+    </div>
+
+    <!-- Gráficos Principales -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="glass p-5 rounded-2xl">
+        <h3 class="text-sm font-bold mb-4 muted">📊 Cuentas Nuevas (Últimos 6 Meses)</h3>
+        <div style="position: relative; height: 250px;">
+          <canvas id="chart-monthly"></canvas>
+        </div>
+      </div>
+      <div class="glass p-5 rounded-2xl">
+        <h3 class="text-sm font-bold mb-4 muted">🎯 Estado de Cuentas</h3>
+        <div style="position: relative; height: 250px;">
+          <canvas id="chart-status"></canvas>
+        </div>
+      </div>
+      <div class="glass p-5 rounded-2xl">
+        <h3 class="text-sm font-bold mb-4 muted">🎬 Distribución por Servicio</h3>
+        <div style="position: relative; height: 250px;">
+          <canvas id="chart-services"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráficos Secundarios -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="glass p-5 rounded-2xl">
+        <h3 class="text-sm font-bold mb-4 muted">💵 Distribución de Precios</h3>
+        <div style="position: relative; height: 250px;">
+          <canvas id="chart-prices"></canvas>
+        </div>
+      </div>
+      <div class="glass p-5 rounded-2xl">
+        <h3 class="text-sm font-bold mb-4 muted">📈 Tendencia de Ingresos (6 Meses)</h3>
+        <div style="position: relative; height: 250px;">
+          <canvas id="chart-revenue-trend"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla de Cuentas Próximas a Vencer -->
+    <div class="glass p-5 rounded-2xl mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold">⏰ Cuentas que Vencen Pronto</h2>
+        <div class="flex gap-2">
+          <button id="filter-7d" class="px-3 py-1 rounded-lg text-xs bg-orange-500/20 text-orange-400 hover:bg-orange-500/30">7 días</button>
+          <button id="filter-30d" class="px-3 py-1 rounded-lg text-xs glass hover:bg-white/10">30 días</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-xs muted border-b border-white/10">
+            <tr>
+              <th class="text-left py-3 px-2">Estado</th>
+              <th class="text-left py-3 px-2">Propietario</th>
+              <th class="text-left py-3 px-2">Correo</th>
+              <th class="text-left py-3 px-2">Precio</th>
+              <th class="text-left py-3 px-2">Vencimiento</th>
+              <th class="text-left py-3 px-2">Días Restantes</th>
+              <th class="text-center py-3 px-2">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="upcoming-accounts-tbody" class="text-sm"></tbody>
+        </table>
+      </div>
+      <div id="upcoming-empty" class="text-center py-8 text-sm muted hidden">
+        ✅ No hay cuentas próximas a vencer
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-8 text-sm muted flex flex-col md:flex-row justify-between items-center gap-3 pb-6">
+      <div class="flex gap-4">
+        <a href="accounts.html" class="hover:text-white transition-colors">Ver todas las cuentas →</a>
+      </div>
+      <span class="text-xs text-white/40">Dashboard v2.0 • Actualizado: <span id="last-update">--:--</span></span>
+    </div>
+  </div>
+
+  <script>
+    // Soporte Supabase + fallback local para Dashboard
+    let useSupabase = !!(window.SUPABASE_URL && window.SUPABASE_ANON_KEY);
+    async function ensureSupabase(){ 
+      if(!useSupabase) return null; 
+      if(window.__supabase) return window.__supabase; 
+      
+      if(typeof supabase === 'undefined'){ 
+        await new Promise((res,rej)=>{ 
+          const s=document.createElement('script'); 
+          s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'; 
+          s.onload=res; 
+          s.onerror=rej; 
+          document.head.appendChild(s); 
+        }).catch((err)=>{ console.error('Error cargando Supabase:', err); }); 
+      } 
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      if(typeof supabase !== 'undefined' && supabase.createClient){ 
+        window.__supabase = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY); 
+        return window.__supabase; 
+      } else if(typeof window.createClient !== 'undefined'){ 
+        window.__supabase = window.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY); 
+        return window.__supabase; 
+      } 
+      return null; 
+    }
+
+    let currentUserId = localStorage.getItem('current_user_id');
+    let allAccounts = [];
+    let chartMonthly=null, chartStatus=null, chartPrices=null, chartRevenueTrend=null, chartServices=null;
+    let upcomingFilterDays = 7; // filtro por defecto
+
+    async function init(){
+      try{ if(window.__auth){ const ok = await window.__auth.requireAuth(); if(!ok) return; } }catch(e){}
+      if(useSupabase){ 
+        const client = await ensureSupabase(); 
+        if(!client){ 
+          useSupabase=false; 
+        } else { 
+          try{ 
+            const { data } = await client.auth.getUser(); 
+            const user = data?.user || null; 
+            if(user && user.id){ 
+              currentUserId = user.id; 
+              localStorage.setItem('current_user_id', currentUserId); 
+              const headerEl = document.getElementById('header-user'); 
+              if(headerEl) headerEl.textContent = user.email || currentUserId; 
+            } else { 
+              window.location.href='login.html'; 
+            } 
+          }catch(e){ 
+            console.error(e); 
+            window.location.href='login.html'; 
+          }
+        }
+      } else { 
+        if(!currentUserId) window.location.href='login.html'; 
+      }
+      
+      // Verificar si es admin
+      try{
+        if(useSupabase && window.__supabase){
+          const { data: isAdminData, error: isAdminError } = await window.__supabase.rpc('is_admin');
+          const isAdmin = (!isAdminError && (isAdminData === true || (Array.isArray(isAdminData) && isAdminData.length && (isAdminData[0] === true || isAdminData[0] === 1)) || (isAdminData && isAdminData.is_admin)));
+          if(isAdmin){ 
+            const btn = document.getElementById('admin-functions-btn'); 
+            if(btn) btn.classList.remove('hidden'); 
+          }
+        }
+      }catch(e){ /* ignore */ }
+      
+      if(!useSupabase){ 
+        try{ 
+          const users = JSON.parse(localStorage.getItem('netflix_users')||'[]'); 
+          const u = users.find(x=>x.id===currentUserId); 
+          const headerEl = document.getElementById('header-user'); 
+          if(headerEl) headerEl.textContent = u?.email || currentUserId; 
+        }catch(e){ console.error(e); } 
+      }
+      
+      document.getElementById('logout').addEventListener('click', async ()=>{ 
+        if(useSupabase && window.__supabase) await window.__supabase.auth.signOut(); 
+        localStorage.removeItem('current_user_id'); 
+        window.location.href='index.html'; 
+      });
+      
+      document.getElementById('btn-profile').addEventListener('click', ()=> openProfileModal());
+      document.getElementById('filter-7d').addEventListener('click', ()=> { upcomingFilterDays = 7; renderUpcomingAccounts(); updateFilterButtons(); });
+      document.getElementById('filter-30d').addEventListener('click', ()=> { upcomingFilterDays = 30; renderUpcomingAccounts(); updateFilterButtons(); });
+    }
+
+    function updateFilterButtons(){
+      document.getElementById('filter-7d').className = upcomingFilterDays === 7 ? 'px-3 py-1 rounded-lg text-xs bg-orange-500/20 text-orange-400' : 'px-3 py-1 rounded-lg text-xs glass hover:bg-white/10';
+      document.getElementById('filter-30d').className = upcomingFilterDays === 30 ? 'px-3 py-1 rounded-lg text-xs bg-orange-500/20 text-orange-400' : 'px-3 py-1 rounded-lg text-xs glass hover:bg-white/10';
+    }
+
+    function getLocalAccounts(){ 
+      const data = localStorage.getItem(`netflix_accounts_local-netflix-app_${currentUserId}`); 
+      return data? JSON.parse(data): []; 
+    }
+
+    function calculateDaysRemaining(expiryDateString){ 
+      if(!expiryDateString) return {days:null}; 
+      const expiry = new Date(expiryDateString+'T00:00:00'); 
+      const today = new Date(); 
+      expiry.setHours(0,0,0,0); 
+      today.setHours(0,0,0,0); 
+      const diff = Math.ceil((expiry.getTime()-today.getTime())/(1000*60*60*24)); 
+      return {days:diff}; 
+    }
+
+    async function fetchAccounts(){ 
+      if(useSupabase && window.__supabase){ 
+        try{ 
+          const { data, error } = await window.__supabase.from('netflix_accounts').select('*').eq('user_id', currentUserId); 
+          if(error) throw error; 
+          return (data||[]).map(r=>({ 
+            id:r.id, 
+            propietario:r.propietario, 
+            correo:r.correo, 
+            fechaCompra:r.fecha_compra, 
+            fechaPago:r.fecha_pago, 
+            fechaCaducidad:r.fecha_caducidad, 
+            precio:r.precio,
+            servicio:r.servicio
+          })); 
+        }catch(err){ 
+          console.error(err); 
+          return getLocalAccounts(); 
+        } 
+      } else { 
+        return getLocalAccounts(); 
+      } 
+    }
+
+    function parseDateAny(s){ 
+      if(!s) return null; 
+      try{
+        if(s instanceof Date) { 
+          const d = new Date(s.getFullYear(), s.getMonth(), s.getDate()); 
+          return d; 
+        }
+        let d = new Date(s);
+        if(!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const ymd = /^\s*(\d{4})-(\d{1,2})-(\d{1,2})\s*$/;
+        let m = s.match(ymd);
+        if(m){ return new Date(Number(m[1]), Number(m[2])-1, Number(m[3])); }
+        const dmy = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*$/;
+        m = s.match(dmy);
+        if(m){ return new Date(Number(m[3]), Number(m[2])-1, Number(m[1])); }
+      }catch(e){}
+      return null; 
+    }
+
+    async function update(){ 
+      allAccounts = await fetchAccounts(); 
+      const now = new Date(); 
+      now.setHours(0,0,0,0);
+      
+      // Métricas básicas
+      document.getElementById('metric-total').textContent = allAccounts.length;
+      const revenue = allAccounts.reduce((s,a)=> s + (parseFloat(a.precio)||0),0); 
+      document.getElementById('metric-revenue').textContent = `$${revenue.toFixed(2)}`;
+      
+      // Análisis de estados
+      const statusCounts = {vencida:0, alerta:0, normal:0};
+      let revenue30 = 0; 
+      let upcoming7 = 0;
+      let upcoming30 = 0;
+      let totalLifetimeDays = 0;
+      let accountsWithLifetime = 0;
+      
+      allAccounts.forEach(a=>{ 
+        const days = calculateDaysRemaining(a.fechaCaducidad).days; 
+        
+        // Estados
+        if(days!==null && days<0) statusCounts.vencida++; 
+        else if(days!==null && days<=7) statusCounts.alerta++; 
+        else statusCounts.normal++;
+        
+        // Vencimientos
+        if(days!==null && days>=0 && days<=7) upcoming7++;
+        if(days!==null && days>=0 && days<=30) upcoming30++; 
+        
+        // Revenue últimos 30 días
+        const pagoDate = parseDateAny(a.fechaPago);
+        const compraDate = parseDateAny(a.fechaCompra);
+        const diffPago = pagoDate ? Math.floor((now.getTime() - pagoDate.getTime())/(1000*60*60*24)) : null;
+        const diffCompra = compraDate ? Math.floor((now.getTime() - compraDate.getTime())/(1000*60*60*24)) : null;
+        const includedPago = diffPago!==null && diffPago>=0 && diffPago<=30;
+        const includedCompra = diffCompra!==null && diffCompra>=0 && diffCompra<=30;
+        const included = includedPago || includedCompra;
+        if(included) revenue30 += (parseFloat(a.precio)||0);
+        
+        // Lifetime promedio
+        if(compraDate){
+          const lifetime = Math.floor((now.getTime() - compraDate.getTime())/(1000*60*60*24));
+          totalLifetimeDays += lifetime;
+          accountsWithLifetime++;
+        }
+        
+        a.__debug_revenue = { 
+          pagoRaw: a.fechaPago||null, pagoDate, diffPago, 
+          compraRaw: a.fechaCompra||null, compraDate, diffCompra, 
+          included, matched: includedPago? 'fechaPago': (includedCompra? 'fechaCompra': null) 
+        };
+      });
+      
+      // Actualizar métricas principales
+      document.getElementById('metric-upcoming').textContent = upcoming7;
+      document.getElementById('metric-overdue').textContent = statusCounts.vencida;
+      
+      const avg = allAccounts.length? (revenue / allAccounts.length) : 0; 
+      document.getElementById('metric-average-inline').textContent = `$${avg.toFixed(2)}`;
+      document.getElementById('metric-revenue-30d').textContent = `$${revenue30.toFixed(2)}`;
+      document.getElementById('metric-upcoming-30d-inline').textContent = upcoming30;
+      
+      // Métricas adicionales
+      const renewalRate = upcoming30 > 0 ? ((upcoming30 - statusCounts.vencida) / upcoming30 * 100).toFixed(1) : 0;
+      document.getElementById('metric-renewal-rate').textContent = `${renewalRate}%`;
+      
+      const occupancy = allAccounts.length > 0 ? ((statusCounts.normal + statusCounts.alerta) / allAccounts.length * 100).toFixed(1) : 0;
+      document.getElementById('metric-occupancy').textContent = `${occupancy}%`;
+      
+      const avgLifetime = accountsWithLifetime > 0 ? Math.round(totalLifetimeDays / accountsWithLifetime) : 0;
+      document.getElementById('metric-avg-lifetime').textContent = `${avgLifetime} días`;
+      
+      // Top Propietarios
+      const ownerCounts = {};
+      allAccounts.forEach(a=>{ 
+        const owner = a.propietario || 'Sin propietario'; 
+        ownerCounts[owner] = (ownerCounts[owner]||0) + 1; 
+      });
+      const topOwners = Object.keys(ownerCounts).map(k=>({ 
+        propietario:k, count: ownerCounts[k] 
+      })).sort((a,b)=> b.count - a.count).slice(0,5);
+      
+      const topContainer = document.getElementById('metric-topowners-container'); 
+      if(topContainer){ 
+        topContainer.innerHTML = ''; 
+        if(topOwners.length===0){ 
+          topContainer.innerHTML = '<div class="text-sm muted">Sin datos</div>'; 
+        } else { 
+          topOwners.forEach((t, idx)=>{ 
+            const maxCount = topOwners[0].count;
+            const percentage = maxCount > 0 ? (t.count / maxCount * 100) : 0;
+            const div = document.createElement('div'); 
+            div.className='flex items-center justify-between py-2 px-3 glass rounded-lg hover:bg-white/5 transition-all'; 
+            div.innerHTML = `
+              <div class="flex items-center gap-3 flex-1">
+                <span class="text-xl">${['🥇','🥈','🥉','🏅','🎖️'][idx] || '🏅'}</span>
+                <div class="flex-1">
+                  <div class="font-semibold text-sm">${t.propietario}</div>
+                  <div class="progress-bar mt-1" style="height: 4px;">
+                    <div class="progress-fill" style="width: ${percentage}%"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="text-lg font-bold text-cyan-400">${t.count}</div>
+                <div class="text-xs muted">cuentas</div>
+              </div>
+            `; 
+            topContainer.appendChild(div); 
+          }); 
+        } 
+      }
+      
+      // Alertas
+      renderAlerts(statusCounts, upcoming7);
+      
+      // Guardar detalles para depuración
+      window.__revenue30_details = allAccounts.map(a=>{
+        const d = a.__debug_revenue || {};
+        return { 
+          id:a.id, propietario:a.propietario, precio:a.precio, 
+          fechaPagoRaw: d.pagoRaw || null, 
+          fechaPagoParsed: d.pagoDate? d.pagoDate.toLocaleDateString() : null, 
+          diffPago: d.diffPago===null? null: d.diffPago, 
+          fechaCompraRaw: d.compraRaw || null, 
+          fechaCompraParsed: d.compraDate? d.compraDate.toLocaleDateString() : null, 
+          diffCompra: d.diffCompra===null? null: d.diffCompra, 
+          included: d.included? 'sí':'no', 
+          matched: d.matched || null 
+        };
+      });
+      
+      // Renderizar gráficos y tabla
+      renderCharts(now, statusCounts);
+      renderUpcomingAccounts();
+      
+      // Actualizar timestamp
+      const now2 = new Date();
+      document.getElementById('last-update').textContent = `${now2.getHours()}:${String(now2.getMinutes()).padStart(2,'0')}`;
+    }
+
+    function renderAlerts(statusCounts, upcoming7){
+      const alertsSection = document.getElementById('alerts-section');
+      alertsSection.innerHTML = '';
+      
+      if(statusCounts.vencida > 0){
+        const alert = document.createElement('div');
+        alert.className = 'glass p-4 rounded-xl border-l-4 border-red-500 alert-badge';
+        alert.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">🔴</span>
+            <div class="flex-1">
+              <div class="font-bold text-red-400">¡Atención! Cuentas Vencidas</div>
+              <div class="text-sm muted">Tienes ${statusCounts.vencida} cuenta${statusCounts.vencida > 1 ? 's' : ''} vencida${statusCounts.vencida > 1 ? 's' : ''} que requiere${statusCounts.vencida > 1 ? 'n' : ''} renovación inmediata</div>
+            </div>
+            <a href="accounts.html" class="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-all">Ver detalles</a>
+          </div>
+        `;
+        alertsSection.appendChild(alert);
+      }
+      
+      if(upcoming7 > 0){
+        const alert = document.createElement('div');
+        alert.className = 'glass p-4 rounded-xl border-l-4 border-orange-500';
+        alert.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">⚠️</span>
+            <div class="flex-1">
+              <div class="font-bold text-orange-400">Renovaciones Próximas</div>
+              <div class="text-sm muted">${upcoming7} cuenta${upcoming7 > 1 ? 's' : ''} vence${upcoming7 > 1 ? 'n' : ''} en los próximos 7 días</div>
+            </div>
+          </div>
+        `;
+        alertsSection.appendChild(alert);
+      }
+      
+      if(statusCounts.vencida === 0 && upcoming7 === 0){
+        const alert = document.createElement('div');
+        alert.className = 'glass p-4 rounded-xl border-l-4 border-green-500';
+        alert.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">✅</span>
+            <div class="flex-1">
+              <div class="font-bold text-green-400">Todo en Orden</div>
+              <div class="text-sm muted">No hay cuentas vencidas ni próximas a vencer</div>
+            </div>
+          </div>
+        `;
+        alertsSection.appendChild(alert);
+      }
+    }
+
+    function renderCharts(now, statusCounts){
+      // Gráfico mensual
+      const months = []; 
+      for(let i=5;i>=0;i--){ 
+        const d = new Date(now.getFullYear(), now.getMonth()-i,1); 
+        months.push(`${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`); 
+      }
+      const monthlyCounts = months.map(m=> allAccounts.filter(a=> a.fechaCompra && (a.fechaCompra.substring(5,7)+'/'+a.fechaCompra.substring(0,4))===m).length);
+
+      const ctx = document.getElementById('chart-monthly').getContext('2d'); 
+      if(chartMonthly){ 
+        chartMonthly.data.labels=months; 
+        chartMonthly.data.datasets[0].data=monthlyCounts; 
+        chartMonthly.update('active'); 
+      } else { 
+        chartMonthly = new Chart(ctx, {
+          type:'bar', 
+          data:{
+            labels:months, 
+            datasets:[{
+              label:'Cuentas Nuevas', 
+              data:monthlyCounts, 
+              backgroundColor:'rgba(6,182,212,0.7)',
+              borderColor:'#06b6d4',
+              borderWidth:2,
+              borderRadius: 8,
+              hoverBackgroundColor:'rgba(6,182,212,0.9)'
+            }]
+          },
+          options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            animation:{
+              duration: 1000,
+              easing: 'easeInOutQuart',
+              delay: (context) => {
+                let delay = 0;
+                if (context.type === 'data' && context.mode === 'default') {
+                  delay = context.dataIndex * 100;
+                }
+                return delay;
+              }
+            },
+            plugins:{
+              legend:{display:false},
+              tooltip:{
+                backgroundColor:'rgba(0,0,0,0.8)',
+                padding:12,
+                cornerRadius:8,
+                titleColor:'#06b6d4',
+                bodyColor:'#fff'
+              }
+            },
+            plugins:{
+              legend:{display:false},
+              tooltip:{
+                backgroundColor:'rgba(0,0,0,0.8)',
+                padding:12,
+                cornerRadius:8,
+                titleColor:'#06b6d4',
+                bodyColor:'#fff'
+              }
+            },
+            scales:{
+              y:{
+                beginAtZero:true,
+                ticks:{color:'rgba(255,255,255,0.6)'},
+                grid:{color:'rgba(255,255,255,0.1)'}
+              },
+              x:{
+                ticks:{color:'rgba(255,255,255,0.6)'},
+                grid:{display:false}
+              }
+            }
+          }
+        }); 
+      }
+      
+      // Gráfico de estado
+      const ctx2 = document.getElementById('chart-status').getContext('2d'); 
+      if(chartStatus){ 
+        chartStatus.data.datasets[0].data=[statusCounts.vencida,statusCounts.alerta,statusCounts.normal]; 
+        chartStatus.update('active'); 
+      } else { 
+        chartStatus = new Chart(ctx2, {
+          type:'doughnut', 
+          data:{
+            labels:['Vencidas','Alerta (7d)','Normal'], 
+            datasets:[{
+              data:[statusCounts.vencida,statusCounts.alerta,statusCounts.normal], 
+              backgroundColor:['#ef4444','#f59e0b','#06b6d4'],
+              borderWidth:0,
+              hoverOffset:10
+            }]
+          },
+          options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            animation:{
+              animateRotate: true,
+              animateScale: true,
+              duration: 1500,
+              easing: 'easeOutBounce'
+            },
+            plugins:{
+              legend:{
+                display:true,
+                position:'bottom',
+                labels:{
+                  color:'rgba(255,255,255,0.8)', 
+                  padding:15,
+                  font:{size:12}
+                }
+              },
+              tooltip:{
+                backgroundColor:'rgba(0,0,0,0.8)',
+                padding:12,
+                cornerRadius:8,
+                bodyColor:'#fff'
+              }
+            }
+          }
+        }); 
+      }
+      
+      // Gráfico de distribución por servicio
+      const serviceCounts = {};
+      allAccounts.forEach(a=>{
+        const servicio = (a.servicio || 'Sin especificar').toLowerCase();
+        const key = servicio.charAt(0).toUpperCase() + servicio.slice(1);
+        serviceCounts[key] = (serviceCounts[key] || 0) + 1;
+      });
+      
+      const serviceLabels = Object.keys(serviceCounts);
+      const serviceData = Object.values(serviceCounts);
+      
+      // Colores dinámicos para servicios
+      const serviceColors = [
+        '#e50914', // Netflix rojo
+        '#113ccf', // Disney+ azul
+        '#a13eea', // HBO Max morado
+        '#00e087', // Spotify verde
+        '#ff6b35', // Amazon naranja
+        '#1db954', // Otro verde
+        '#f59e0b', // Amarillo
+        '#ec4899', // Rosa
+        '#8b5cf6', // Púrpura
+        '#06b6d4'  // Cyan
+      ];
+      
+      const ctx3 = document.getElementById('chart-services').getContext('2d');
+      if(chartServices){
+        chartServices.data.labels = serviceLabels;
+        chartServices.data.datasets[0].data = serviceData;
+        chartServices.update('active');
+      } else {
+        chartServices = new Chart(ctx3, {
+          type:'pie',
+          data:{
+            labels:serviceLabels,
+            datasets:[{
+              data:serviceData,
+              backgroundColor:serviceColors.slice(0, serviceLabels.length),
+              borderWidth:2,
+              borderColor:'rgba(0,0,0,0.5)',
+              hoverOffset:15
+            }]
+          },
+          options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            animation:{
+              animateRotate: true,
+              animateScale: true,
+              duration: 1500,
+              easing: 'easeInOutQuart'
+            },
+            plugins:{
+              legend:{
+                display:true,
+                position:'bottom',
+                labels:{
+                  color:'rgba(255,255,255,0.8)',
+                  padding:10,
+                  font:{size:11},
+                  generateLabels: function(chart) {
+                    const data = chart.data;
+                    if (data.labels.length && data.datasets.length) {
+                      return data.labels.map((label, i) => {
+                        const value = data.datasets[0].data[i];
+                        const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                        const percentage = ((value / total) * 100).toFixed(1);
+                        return {
+                          text: `${label}: ${value} (${percentage}%)`,
+                          fillStyle: data.datasets[0].backgroundColor[i],
+                          hidden: false,
+                          index: i
+                        };
+                      });
+                    }
+                    return [];
+                  }
+                }
+              },
+              tooltip:{
+                backgroundColor:'rgba(0,0,0,0.9)',
+                padding:12,
+                cornerRadius:8,
+                bodyColor:'#fff',
+                callbacks: {
+                  label: function(context) {
+                    const label = context.label || '';
+                    const value = context.parsed;
+                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                    const percentage = ((value / total) * 100).toFixed(1);
+                    return `${label}: ${value} cuentas (${percentage}%)`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+      
+      // Gráfico de precios
+      const priceRanges = {'$0-$5':0, '$5-$10':0, '$10-$15':0, '$15+':0};
+      allAccounts.forEach(a=>{
+        const p = parseFloat(a.precio)||0;
+        if(p < 5) priceRanges['$0-$5']++;
+        else if(p < 10) priceRanges['$5-$10']++;
+        else if(p < 15) priceRanges['$10-$15']++;
+        else priceRanges['$15+']++;
+      });
+      
+      const ctx4 = document.getElementById('chart-prices').getContext('2d');
+      if(chartPrices){
+        chartPrices.data.datasets[0].data = Object.values(priceRanges);
+        chartPrices.update('active');
+      } else {
+        chartPrices = new Chart(ctx4, {
+          type:'bar',
+          data:{
+            labels:Object.keys(priceRanges),
+            datasets:[{
+              label:'Cuentas',
+              data:Object.values(priceRanges),
+              backgroundColor:'rgba(139,92,246,0.7)',
+              borderColor:'#8b5cf6',
+              borderWidth:2,
+              borderRadius: 8,
+              hoverBackgroundColor:'rgba(139,92,246,0.9)'
+            }]
+          },
+          options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            animation:{
+              duration: 1200,
+              easing: 'easeInOutQuart',
+              delay: (context) => {
+                let delay = 0;
+                if (context.type === 'data' && context.mode === 'default') {
+                  delay = context.dataIndex * 80;
+                }
+                return delay;
+              }
+            },
+            plugins:{
+              legend:{display:false},
+              tooltip:{
+                backgroundColor:'rgba(139,92,246,0.9)',
+                titleColor:'#fff',
+                bodyColor:'#fff',
+                borderColor:'#8b5cf6',
+                borderWidth:1,
+                cornerRadius:8,
+                padding:12
+              }
+            },
+            scales:{
+              y:{
+                beginAtZero:true,
+                ticks:{color:'rgba(255,255,255,0.6)', stepSize:1},
+                grid:{color:'rgba(255,255,255,0.1)'}
+              },
+              x:{
+                ticks:{color:'rgba(255,255,255,0.6)'},
+                grid:{display:false}
+              }
+            }
+          }
+        });
+      }
+      
+      // Gráfico de tendencia de ingresos
+      const revenueByMonth = months.map(m => {
+        return allAccounts
+          .filter(a=> a.fechaCompra && (a.fechaCompra.substring(5,7)+'/'+a.fechaCompra.substring(0,4))===m)
+          .reduce((sum, a) => sum + (parseFloat(a.precio)||0), 0);
+      });
+      
+      const ctx5 = document.getElementById('chart-revenue-trend').getContext('2d');
+      if(chartRevenueTrend){
+        chartRevenueTrend.data.datasets[0].data = revenueByMonth;
+        chartRevenueTrend.update('active');
+      } else {
+        chartRevenueTrend = new Chart(ctx5, {
+          type:'line',
+          data:{
+            labels:months,
+            datasets:[{
+              label:'Ingresos',
+              data:revenueByMonth,
+              backgroundColor:'rgba(34,197,94,0.1)',
+              borderColor:'#22c55e',
+              borderWidth:3,
+              fill:true,
+              tension:0.4,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              pointBackgroundColor:'#22c55e',
+              pointBorderColor:'#fff',
+              pointBorderWidth:2
+            }]
+          },
+          options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            animation:{
+              duration: 1500,
+              easing: 'easeInOutCubic',
+              x: {
+                type: 'number',
+                easing: 'easeInOutCubic',
+                duration: 1500,
+                from: NaN,
+                delay(ctx) {
+                  if (ctx.type !== 'data' || ctx.xStarted) {
+                    return 0;
+                  }
+                  ctx.xStarted = true;
+                  return ctx.index * 100;
+                }
+              },
+              y: {
+                type: 'number',
+                easing: 'easeInOutCubic',
+                duration: 1500,
+                from: 0,
+                delay(ctx) {
+                  if (ctx.type !== 'data' || ctx.yStarted) {
+                    return 0;
+                  }
+                  ctx.yStarted = true;
+                  return ctx.index * 100;
+                }
+              }
+            },
+            plugins:{
+              legend:{display:false},
+              tooltip:{
+                backgroundColor:'rgba(34,197,94,0.9)',
+                titleColor:'#fff',
+                bodyColor:'#fff',
+                borderColor:'#22c55e',
+                borderWidth:1,
+                cornerRadius:8,
+                padding:12,
+                callbacks: {
+                  label: function(context) {
+                    return 'Ingresos: $' + context.parsed.y.toFixed(2);
+                  }
+                }
+              }
+            },
+            scales:{
+              y:{
+                beginAtZero:true,
+                ticks:{
+                  color:'rgba(255,255,255,0.6)',
+                  callback: function(value) {
+                    return '$' + value.toFixed(2);
+                  }
+                },
+                grid:{color:'rgba(255,255,255,0.1)'}
+              },
+              x:{
+                ticks:{color:'rgba(255,255,255,0.6)'},
+                grid:{display:false}
+              }
+            }
+          }
+        });
+      }
+    }
+
+    function renderUpcomingAccounts(){
+      const tbody = document.getElementById('upcoming-accounts-tbody');
+      const emptyDiv = document.getElementById('upcoming-empty');
+      tbody.innerHTML = '';
+      
+      const filtered = allAccounts.filter(a=>{
+        const days = calculateDaysRemaining(a.fechaCaducidad).days;
+        return days !== null && days >= 0 && days <= upcomingFilterDays;
+      }).sort((a,b)=>{
+        const daysA = calculateDaysRemaining(a.fechaCaducidad).days || 999;
+        const daysB = calculateDaysRemaining(b.fechaCaducidad).days || 999;
+        return daysA - daysB;
+      });
+      
+      if(filtered.length === 0){
+        tbody.innerHTML = '';
+        emptyDiv.classList.remove('hidden');
+        return;
+      }
+      
+      emptyDiv.classList.add('hidden');
+      
+      filtered.forEach(a=>{
+        const days = calculateDaysRemaining(a.fechaCaducidad).days;
+        let statusClass = 'status-normal';
+        let statusText = '✅ Normal';
+        
+        if(days < 0){
+          statusClass = 'status-vencida';
+          statusText = '🔴 Vencida';
+        } else if(days <= 3){
+          statusClass = 'status-vencida';
+          statusText = '🔴 Urgente';
+        } else if(days <= 7){
+          statusClass = 'status-alerta';
+          statusText = '⚠️ Alerta';
+        }
+        
+        const tr = document.createElement('tr');
+        tr.className = 'table-row border-b border-white/5';
+        tr.innerHTML = `
+          <td class="py-3 px-2">
+            <span class="status-badge ${statusClass}">${statusText}</span>
+          </td>
+          <td class="py-3 px-2 font-semibold">${a.propietario || 'Sin propietario'}</td>
+          <td class="py-3 px-2 muted">${a.correo || 'N/A'}</td>
+          <td class="py-3 px-2 text-green-400 font-bold">$${(parseFloat(a.precio)||0).toFixed(2)}</td>
+          <td class="py-3 px-2">${a.fechaCaducidad || 'N/A'}</td>
+          <td class="py-3 px-2 ${days < 0 ? 'text-red-400' : days <= 7 ? 'text-orange-400' : 'text-cyan-400'} font-bold">
+            ${days < 0 ? `Hace ${Math.abs(days)} día${Math.abs(days)>1?'s':''}` : `${days} día${days>1?'s':''}`}
+          </td>
+          <td class="py-3 px-2 text-center">
+            <a href="accounts.html" class="px-3 py-1 text-xs bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg transition-all">
+              Ver cuenta
+            </a>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+  // Mostrar modal con detalle de ingresos últimos 30 días para depuración
+  function openRevenue30Modal(){ 
+    const details = window.__revenue30_details || []; 
+    const modal = document.getElementById('revenue30-modal'); 
+    const tbody = document.getElementById('revenue30-tbody'); 
+    tbody.innerHTML=''; 
+    let sum=0; 
+    details.forEach(d=>{ 
+      if(d.included && d.included!=='no'){
+        const tr = document.createElement('tr'); 
+        const fechaCompra = d.fechaCompraRaw || ''; 
+        tr.innerHTML = `
+          <td class="px-2 py-1 border-b border-white/10">${fechaCompra}</td>
+          <td class="px-2 py-1 border-b border-white/10">${d.propietario||''}</td>
+          <td class="px-2 py-1 border-b border-white/10 text-green-400 font-semibold">$${d.precio||'0'}</td>
+        `; 
+        tbody.appendChild(tr); 
+        sum += parseFloat(d.precio)||0; 
+      }
+    }); 
+    document.getElementById('revenue30-sum').textContent = `$${sum.toFixed(2)}`; 
+    modal.classList.remove('hidden'); 
+  }
+  
+  function closeRevenue30Modal(){ 
+    document.getElementById('revenue30-modal').classList.add('hidden'); 
+  }
+
+    // Perfil modal
+    function openProfileModal(){ 
+      document.getElementById('profile-modal').classList.remove('hidden'); 
+      document.getElementById('profile-msg').classList.add('hidden'); 
+      loadProfileInfo(); 
+    }
+    
+    function closeProfileModal(){ 
+      document.getElementById('profile-modal').classList.add('hidden'); 
+    }
+    
+    async function loadProfileInfo(){ 
+      const emailEl = document.getElementById('profile-email'); 
+      emailEl.textContent='Cargando...'; 
+      if(useSupabase && window.__supabase){ 
+        try{ 
+          const { data } = await window.__supabase.auth.getUser(); 
+          const user = data?.user || null; 
+          emailEl.textContent = user?.email || 'Sin correo'; 
+        }catch(err){ 
+          console.error(err); 
+          emailEl.textContent='Error'; 
+        } 
+      } else { 
+        const users = JSON.parse(localStorage.getItem('netflix_users')||'[]'); 
+        const u = users.find(x=>x.id===currentUserId); 
+        emailEl.textContent = u?.email || 'Usuario local'; 
+      } 
+    }
+
+    document.getElementById('change-password-form').addEventListener('submit', async (e)=>{ 
+      e.preventDefault(); 
+      const msgEl = document.getElementById('profile-msg'); 
+      msgEl.className='text-sm mt-2 hidden'; 
+      const p1 = document.getElementById('new-password').value; 
+      const p2 = document.getElementById('confirm-password').value; 
+      if(!p1 || p1.length<6){ 
+        msgEl.textContent='La contraseña debe tener al menos 6 caracteres.'; 
+        msgEl.classList.remove('hidden'); 
+        return; 
+      } 
+      if(p1!==p2){ 
+        msgEl.textContent='Las contraseñas no coinciden.'; 
+        msgEl.classList.remove('hidden'); 
+        return; 
+      } 
+      try{ 
+        if(useSupabase && window.__supabase){ 
+          const { data, error } = await window.__supabase.auth.updateUser({ password: p1 }); 
+          if(error) throw error; 
+          msgEl.textContent='Contraseña actualizada.'; 
+          msgEl.classList.remove('hidden'); 
+        } else { 
+          const users = JSON.parse(localStorage.getItem('netflix_users')||'[]'); 
+          const idx = users.findIndex(x=>x.id===currentUserId); 
+          if(idx===-1){ 
+            msgEl.textContent='Usuario local no encontrado.'; 
+            msgEl.classList.remove('hidden'); 
+            return; 
+          } 
+          users[idx].password = p1; 
+          localStorage.setItem('netflix_users', JSON.stringify(users)); 
+          msgEl.textContent='Contraseña (local) actualizada.'; 
+          msgEl.classList.remove('hidden'); 
+        } 
+        document.getElementById('new-password').value=''; 
+        document.getElementById('confirm-password').value=''; 
+      }catch(err){ 
+        msgEl.textContent = err.message || String(err); 
+        msgEl.classList.remove('hidden'); 
+      } 
+    });
+
+    // Inicializar
+    (async ()=>{ 
+      await init(); 
+      await update(); 
+      // Actualizar cada 60 segundos
+      setInterval(update, 60000);
+    })();
+
+    // hook botón debug
+    document.getElementById('btn-debug-30d').addEventListener('click', ()=> openRevenue30Modal());
+  </script>
+
+    <!-- Modal detalle ingresos 30d -->
+    <div id="revenue30-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
+      <div class="glass p-6 rounded-2xl max-w-4xl w-full mx-4">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-xl font-bold">📊 Detalle: Ingresos Últimos 30 Días</h3>
+            <p class="text-xs muted mt-1">Cuentas que generaron ingresos en el período</p>
+          </div>
+          <button onclick="closeRevenue30Modal()" class="px-4 py-2 rounded-lg glass hover:bg-white/10 transition-all">✕ Cerrar</button>
+        </div>
+        <div class="mb-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+          <div class="text-sm muted">Total del Período</div>
+          <div id="revenue30-sum" class="text-3xl font-bold text-green-400">$0.00</div>
+        </div>
+        <div style="max-height:400px; overflow:auto;" class="custom-scrollbar">
+          <table class="w-full text-sm table-auto">
+            <thead class="muted text-xs text-left sticky top-0 glass">
+              <tr>
+                <th class="p-3">Fecha de Compra</th>
+                <th class="p-3">Propietario</th>
+                <th class="p-3 text-right">Precio</th>
+              </tr>
+            </thead>
+            <tbody id="revenue30-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+</body>
+<script src="assets/ui.js"></script>
+</html>

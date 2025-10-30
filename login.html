@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login - Control de Cuentas Netflix</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body class="min-h-screen p-6">
+  <!-- Cargar env.js de forma síncrona primero -->
+  <script src="env.js"></script>
+  <script src="assets/ui.js"></script>
+  <script src="assets/auth_guard.js"></script>
+  <script>
+    // Si ya está autenticado, redirigir a accounts
+    (async function(){ if(window.__auth){ try{ await window.__auth.redirectIfAuthenticated('accounts.html'); }catch(e){} } })();
+  </script>
+  
+  <!-- Header Simple -->
+  <div class="max-w-7xl mx-auto mb-8">
+    <header class="flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-2 text-white hover:text-cyan-400 transition-all">
+        <span class="text-2xl">←</span>
+        <span class="font-semibold">Volver al Inicio</span>
+      </a>
+      <div class="text-sm muted">Control de Cuentas v2.0</div>
+    </header>
+  </div>
+  
+  <div class="max-w-md w-full mx-auto p-8 rounded-2xl glass">
+    <div class="flex items-center justify-center mb-6">
+      <h1 class="text-3xl font-extrabold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">🔐 Iniciar Sesión</h1>
+    </div>
+    
+    <!-- Selector de tipo de usuario -->
+    <div class="flex gap-2 mb-6 bg-white/5 p-1 rounded-lg">
+      <button id="btn-mode-code" class="flex-1 py-2 rounded text-sm font-semibold transition accent-btn text-white">
+        👤 Usuario
+      </button>
+      <button id="btn-mode-admin" class="flex-1 py-2 rounded text-sm font-semibold transition btn-ghost text-white/60 hover:text-white">
+        👨‍💼 Admin
+      </button>
+    </div>
+
+    <!-- Formulario para usuarios con código -->
+    <form id="authFormCode" class="space-y-4">
+      <p class="text-sm muted mb-4 text-center">Ingresa tu correo y el código de acceso proporcionado por el administrador.</p>
+      
+      <div>
+        <label class="block text-xs muted mb-2">Correo electrónico</label>
+        <input id="email-code" type="email" placeholder="correo@ejemplo.com" required class="w-full p-3 rounded-lg input-futur" />
+      </div>
+      
+      <div>
+        <label class="block text-xs muted mb-2">Código de acceso</label>
+        <input id="access-code" type="text" placeholder="Código proporcionado" required minlength="8" maxlength="20"
+               class="w-full p-3 rounded-lg input-futur font-mono text-base tracking-wide" />
+        <p class="text-xs muted mt-1">Ingresa el código proporcionado por tu administrador (distingue mayúsculas y minúsculas)</p>
+      </div>
+      
+      <button type="submit" class="w-full btn-primary text-white py-3 rounded-lg font-semibold">
+        Iniciar sesión con código
+      </button>
+      
+      <div class="brand-gradient p-4 rounded-lg mt-4">
+        <p class="text-xs brand-note">
+          ℹ️ <strong>¿No tienes un código?</strong><br>
+          Contacta al administrador para que te cree una cuenta y te proporcione tu código de acceso.
+        </p>
+      </div>
+    </form>
+
+    <!-- Formulario para admin con contraseña -->
+    <form id="authFormAdmin" class="space-y-4 hidden">
+      <p class="text-sm muted mb-4 text-center">Acceso exclusivo para administradores del sistema.</p>
+      
+      <div>
+        <label class="block text-xs muted mb-2">Correo electrónico</label>
+        <input id="email-admin" type="email" placeholder="admin@ejemplo.com" required class="w-full p-3 rounded-lg input-futur" />
+      </div>
+      
+      <div>
+        <label class="block text-xs muted mb-2">Contraseña</label>
+        <input id="password-admin" type="password" placeholder="••••••••" required class="w-full p-3 rounded-lg input-futur" />
+      </div>
+      
+      <button type="submit" class="w-full btn-primary text-white py-3 rounded-lg font-semibold">
+        Iniciar sesión como administrador
+      </button>
+      
+      <div class="bg-orange-600/20 p-4 rounded-lg border border-orange-500/50 mt-4">
+        <p class="text-sm text-orange-100">
+          ⚠️ <strong>Solo para administradores</strong><br>
+          Si eres un usuario normal, usa la opción "Usuario" con tu código de acceso.
+        </p>
+      </div>
+    </form>
+
+    <p id="msg" class="text-sm text-rose-400 hidden mt-4"></p>
+    
+    <div class="mt-6 text-sm muted flex justify-between items-center">
+      <a href="index.html" class="text-white/70 hover:text-white">← Volver a Inicio</a>
+      <span class="text-xs text-white/40">v2.0 • Acceso dual</span>
+    </div>
+  </div>
+
+  <!-- Theme toggle -->
+  <button id="theme-toggle" class="theme-toggle" title="Cambiar tema" aria-label="Cambiar tema">
+    <!-- Icon will be set by JS -->
+  </button>
+
+  <script>
+
+    // Validar caracteres permitidos en el código (sin conversión a mayúsculas)
+    document.getElementById('access-code').addEventListener('input', function(e){
+      // Permitir mayúsculas, minúsculas, números y caracteres especiales
+      this.value = this.value.replace(/[^A-Za-z0-9@#$%&*]/g, '');
+    });
+
+    // Toggle entre modo usuario y admin
+    const btnModeCode = document.getElementById('btn-mode-code');
+    const btnModeAdmin = document.getElementById('btn-mode-admin');
+    const formCode = document.getElementById('authFormCode');
+    const formAdmin = document.getElementById('authFormAdmin');
+
+    btnModeCode.addEventListener('click', () => {
+      formCode.classList.remove('hidden');
+      formAdmin.classList.add('hidden');
+  btnModeCode.className = 'flex-1 py-2 rounded text-sm font-semibold transition accent-btn text-white';
+  btnModeAdmin.className = 'flex-1 py-2 rounded text-sm font-semibold transition btn-ghost text-white/60 hover:text-white';
+      document.getElementById('msg').classList.add('hidden');
+    });
+
+    btnModeAdmin.addEventListener('click', () => {
+      formAdmin.classList.remove('hidden');
+      formCode.classList.add('hidden');
+  btnModeAdmin.className = 'flex-1 py-2 rounded text-sm font-semibold transition accent-btn text-white';
+  btnModeCode.className = 'flex-1 py-2 rounded text-sm font-semibold transition btn-ghost text-white/60 hover:text-white';
+      document.getElementById('msg').classList.add('hidden');
+    });
+
+    (async function(){
+      // Verificar configuración de Supabase
+      const useSupabase = Boolean(window.SUPABASE_URL && window.SUPABASE_ANON_KEY);
+      if (!useSupabase) {
+        const msg = document.getElementById('msg');
+        msg.textContent = 'Error: Supabase no configurado. Contacta al administrador.';
+        msg.classList.remove('hidden');
+        return;
+      }
+
+      // Inicializar Supabase
+      if (typeof supabase === 'undefined') {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+          s.onload = resolve; s.onerror = reject; document.head.appendChild(s);
+        }).catch((err)=>{
+          console.error('Error cargando Supabase:', err);
+        });
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Inicializar cliente de Supabase
+      if (typeof supabase !== 'undefined' && supabase.createClient) {
+        window.__supabase = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+      } else if (typeof window.createClient !== 'undefined') {
+        window.__supabase = window.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+      }
+
+      if (!window.__supabase) {
+        const msg = document.getElementById('msg');
+        msg.textContent = 'Error: No se pudo inicializar Supabase.';
+        msg.classList.remove('hidden');
+        return;
+      }
+
+      const sb = window.__supabase;
+
+      // Manejar login con código (usuarios normales)
+      document.getElementById('authFormCode').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const email = document.getElementById('email-code').value.trim();
+        const code = document.getElementById('access-code').value.trim(); // No convertir a mayúsculas
+        const msg = document.getElementById('msg');
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        
+        msg.classList.add('hidden');
+        
+        if(!email){
+          msg.textContent = 'Por favor ingresa tu correo electrónico.';
+          msg.classList.remove('hidden');
+          return;
+        }
+        
+        if(!code || code.length < 8){
+          msg.textContent = 'Por favor ingresa un código de acceso válido (mínimo 8 caracteres).';
+          msg.classList.remove('hidden');
+          return;
+        }
+        
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Verificando...';
+        
+        try{
+          // Verificar el código usando la función RPC
+          const { data: verification, error: verifyError } = await sb.rpc('verify_access_code', {
+            p_email: email,
+            p_code: code
+          });
+          
+          if(verifyError) throw verifyError;
+          
+          if(!verification || verification.length === 0 || !verification[0].is_valid){
+            throw new Error('Código inválido o expirado. Verifica el código o contacta al administrador.');
+          }
+          
+          const userId = verification[0].user_id;
+          const expiresAt = verification[0].expires_at;
+          
+          // Guardar info en localStorage para que auth_guard la use
+          localStorage.setItem('access_code_session', JSON.stringify({
+            user_id: userId,
+            email: email,
+            code: code,
+            expires_at: expiresAt,
+            verified_at: new Date().toISOString()
+          }));
+          
+          msg.textContent = '✅ Código verificado. Redirigiendo...';
+          msg.className = 'text-sm text-green-400';
+          msg.classList.remove('hidden');
+          
+          setTimeout(() => {
+            const params = new URLSearchParams(window.location.search);
+            const next = params.get('next');
+            window.location.href = next || 'accounts.html';
+          }, 1000);
+          
+        }catch(err){
+          msg.textContent = '❌ ' + (err.message || String(err));
+          msg.className = 'text-sm text-rose-400';
+          msg.classList.remove('hidden');
+        }finally{
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Iniciar sesión con código';
+        }
+      });
+
+      // Manejar login con contraseña (admin)
+      document.getElementById('authFormAdmin').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const email = document.getElementById('email-admin').value.trim();
+        const password = document.getElementById('password-admin').value;
+        const msg = document.getElementById('msg');
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        
+        msg.classList.add('hidden');
+        
+        if(!email){
+          msg.textContent = 'Por favor ingresa tu correo electrónico.';
+          msg.classList.remove('hidden');
+          return;
+        }
+        
+        if(!password){
+          msg.textContent = 'Por favor ingresa tu contraseña.';
+          msg.classList.remove('hidden');
+          return;
+        }
+        
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Iniciando sesión...';
+        
+        try{
+          const { data, error } = await sb.auth.signInWithPassword({ 
+            email, 
+            password 
+          });
+          
+          if (error) throw error;
+          
+          const sessionUser = data?.session?.user || data?.user;
+          if (sessionUser && sessionUser.id) {
+            // Verificar si es admin
+            const { data: isAdminData } = await sb.rpc('is_admin');
+            const isAdmin = isAdminData === true || (Array.isArray(isAdminData) && isAdminData[0] === true);
+            
+            if(!isAdmin){
+              await sb.auth.signOut();
+              throw new Error('No tienes permisos de administrador. Usa la opción "Usuario" con tu código.');
+            }
+            
+            msg.textContent = '✅ Bienvenido, administrador. Redirigiendo...';
+            msg.className = 'text-sm text-green-400';
+            msg.classList.remove('hidden');
+            
+            setTimeout(() => {
+              const params = new URLSearchParams(window.location.search);
+              const next = params.get('next');
+              window.location.href = next || 'admin.html';
+            }, 1000);
+          } else {
+            throw new Error('Error al iniciar sesión. Verifica tus credenciales.');
+          }
+        }catch(err){
+          msg.textContent = '❌ ' + (err.message || String(err));
+          msg.className = 'text-sm text-rose-400';
+          msg.classList.remove('hidden');
+        }finally{
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Iniciar sesión como administrador';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

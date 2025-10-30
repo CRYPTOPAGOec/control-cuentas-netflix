@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Control de Cuentas — Inicio</title>
+  <meta name="theme-color" content="#07090d">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+  <!-- Icon library for multimedia icons -->
+  <script src="https://code.iconify.design/2/2.2.1/iconify.min.js"></script>
+</head>
+<body class="min-h-screen landing-bg" style="--landing-bg-overlay:0.12">
+  <script src="env.js"></script>
+  <main>
+    <header class="hero" role="banner" aria-label="Hero - Control de Cuentas">
+      <div class="hero-inner">
+        <div class="glass hero-card" role="region" aria-labelledby="hero-title">
+          <h1 id="hero-title">Control de Cuentas <mark class="brand">Streaming </mark></h1>
+          <p class="lead">Gestiona tus clientes, pagos, renovaciones y métricas en un solo lugar.</p>
+          <div class="hero-actions">
+            <a href="login.html" class="cta accent-btn" aria-label="Iniciar sesión o crear cuenta">Iniciar sesión / Crear cuenta</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Elementos decorativos flotantes (no interactivos) -->
+      <div class="floating-logos" aria-hidden="true">
+        <div class="floating-logo logo--accent" style="left:8%; top:16%"><span class="iconify" data-icon="mdi:filmstrip"></span></div>
+        <div class="floating-logo logo--glass" style="left:86%; top:10%"><span class="iconify" data-icon="mdi:play-circle"></span></div>
+        <div class="floating-logo logo--accent" style="left:6%; top:72%"><span class="iconify" data-icon="mdi:clapperboard"></span></div>
+        <div class="floating-logo logo--glass" style="left:76%; top:74%"><span class="iconify" data-icon="mdi:video"></span></div>
+        <div class="floating-logo logo--accent" style="left:50%; top:6%"><span class="iconify" data-icon="mdi:projector"></span></div>
+      </div>
+    </header>
+
+    <section class="max-w-5xl mx-auto p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="glass p-6 rounded-2xl">
+          <h2 class="text-xl font-semibold">Qué hace esta herramienta</h2>
+          <ul class="list-disc pl-5 muted mt-3 space-y-2">
+            <li>Registrar y organizar cuentas vendidas (propietario, correo, precio, fechas).</li>
+            <li>Calcular fechas de pago y caducidad automáticamente según la duración.</li>
+            <li>Alertas visuales para pagos vencidos y próximos vencimientos.</li>
+            <li>Dashboard con métricas clave: total ventas, ingresos y vencimientos próximos.</li>
+          </ul>
+        </div>
+        <div class="glass p-6 rounded-2xl">
+          <h2 class="text-xl font-semibold">Beneficios</h2>
+          <p class="muted mt-3">Controla renovaciones, evita olvidos y mejora la previsibilidad de tus ingresos con alertas y reportes.</p>
+        </div>
+      </div>
+
+      
+    </section>
+
+  </main>
+  <script src="assets/ui.js"></script>
+  <script src="assets/animations.js"></script>
+  </body>
+</html>

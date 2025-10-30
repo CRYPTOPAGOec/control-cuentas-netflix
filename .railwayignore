@@ -1,0 +1,27 @@
+# Archivos de Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Archivos de entorno (no subir credenciales)
+.env
+env.js
+env.admin.example.js
+
+# Archivos de test
+test_*.js
+
+# Documentación de desarrollo
+*.md
+!README.md
+
+# Archivos de git
+.git/
+.gitignore
+
+# Archivos temporales
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
