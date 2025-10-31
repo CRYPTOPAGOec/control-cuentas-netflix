@@ -38,11 +38,20 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
+// Servir archivos estáticos (HTML, CSS, JS, imágenes)
+app.use(express.static(path.join(__dirname), {
+  extensions: ['html'],
+  index: 'index.html'
+}));
+
+// Servir la carpeta assets
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
+
 // Simple middleware to verify admin secret
 function verifySecret(req,res,next){ const secret = req.headers['x-admin-secret']; if(!secret || secret !== ADMIN_SECRET){ return res.status(401).json({ error: 'Unauthorized' }); } next(); }
 
-// Root endpoint
-app.get('/', (req,res)=> res.json({ 
+// Root endpoint - API info (solo para /api/)
+app.get('/api', (req,res)=> res.json({ 
   message: 'Admin Server API', 
   version: '1.0.0',
   endpoints: [
