@@ -41,6 +41,20 @@ app.use(bodyParser.json());
 // Simple middleware to verify admin secret
 function verifySecret(req,res,next){ const secret = req.headers['x-admin-secret']; if(!secret || secret !== ADMIN_SECRET){ return res.status(401).json({ error: 'Unauthorized' }); } next(); }
 
+// Root endpoint
+app.get('/', (req,res)=> res.json({ 
+  message: 'Admin Server API', 
+  version: '1.0.0',
+  endpoints: [
+    'GET /_health',
+    'GET /admin/users (requiere x-admin-secret)',
+    'POST /admin/users (requiere x-admin-secret)',
+    'PUT /admin/users/:id (requiere x-admin-secret)',
+    'DELETE /admin/users/:id (requiere x-admin-secret)',
+    'POST /admin/users/:id/toggle (requiere x-admin-secret)'
+  ]
+}));
+
 // Health
 app.get('/_health', (req,res)=> res.json({ ok:true, env: !!SUPABASE_SERVICE_ROLE_KEY }));
 
