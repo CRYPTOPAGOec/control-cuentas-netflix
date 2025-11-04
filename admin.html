@@ -418,8 +418,8 @@
       // Verificar que existe la SERVICE_ROLE_KEY para operaciones admin
       if(!window.SUPABASE_SERVICE_ROLE_KEY){ 
         document.getElementById('admin-warning').classList.remove('hidden'); 
-        document.getElementById('admin-warning').textContent = 'Para usar el panel admin, debes agregar SUPABASE_SERVICE_ROLE_KEY en env.js. ADVERTENCIA: Solo para desarrollo local, nunca en producción.'; 
-        return; 
+        document.getElementById('admin-warning').textContent = '⚠️ Las operaciones administrativas requieren autenticación. Este panel usa el servidor backend para operaciones seguras.'; 
+        console.warn('SERVICE_ROLE_KEY no disponible en el cliente. Las operaciones admin usarán el servidor backend.');
       }
 
       // Cargar SDK
@@ -431,8 +431,11 @@
       const sb = (typeof supabase !== 'undefined' && supabase.createClient) ? supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : (window.createClient ? window.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null);
       if(!sb){ document.getElementById('admin-warning').classList.remove('hidden'); document.getElementById('admin-warning').textContent = 'No se pudo inicializar Supabase.'; return; }
 
-      // Cliente admin con service role key
-      const adminClient = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+      // Cliente admin con service role key (solo disponible en desarrollo local)
+      // En producción, las operaciones admin se hacen a través del servidor backend
+      const adminClient = window.SUPABASE_SERVICE_ROLE_KEY 
+        ? supabase.createClient(window.SUPABASE_URL, window.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+        : null;
 
       // Obtener usuario actual y verificar admin
       let currentUserEmail = 'Desconocido';
