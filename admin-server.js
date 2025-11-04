@@ -96,19 +96,25 @@ async function verifyAdminAuth(req, res, next) {
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
     
     if (error || !user) {
+      console.error('Error al verificar token:', error);
       return res.status(401).json({ error: 'Token inválido o expirado' });
     }
     
-    // Verificar que el usuario sea admin usando RPC
-    const { data: isAdminData, error: rpcError } = await supabaseAdmin.rpc('is_admin', {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    console.log('Usuario autenticado:', user.email, 'ID:', user.id);
     
-    const isAdmin = isAdminData === true || (Array.isArray(isAdminData) && isAdminData[0] === true);
+    // Verificar que el usuario sea admin consultando la tabla admins directamente
+    const { data: adminData, error: adminError } = await supabaseAdmin
+      .from('admins')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .single();
     
-    if (!isAdmin) {
+    if (adminError || !adminData) {
+      console.log('Usuario no es admin:', user.email);
       return res.status(403).json({ error: 'Acceso denegado. Se requieren permisos de administrador.' });
     }
+    
+    console.log('✅ Usuario admin verificado:', user.email);
     
     // Adjuntar información del usuario a la request
     req.user = user;
