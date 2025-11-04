@@ -9,7 +9,6 @@ Debes configurar estas variables en el dashboard de Railway:
 SUPABASE_URL=https://tu-proyecto.supabase.co
 SUPABASE_ANON_KEY=tu_anon_key_aqui
 SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key_aqui
-ADMIN_SECRET=tu_secreto_admin_muy_seguro_aqui
 PORT=3000
 ```
 
@@ -27,13 +26,18 @@ PORT=3000
    - Settings > API > Project API keys > service_role key
    - ⚠️ IMPORTANTE: Esta key es secreta, nunca la compartas
 
-3. **ADMIN_SECRET**: 
-   - Genera un secreto seguro (ej: `openssl rand -hex 32`)
-   - Este secreto se usará en la cabecera `x-admin-secret` para autenticar operaciones admin
-
 4. **PORT**: 
    - Railway lo asigna automáticamente
    - El valor por defecto 3000 funciona si no se especifica
+
+## 🔐 Autenticación de Administradores
+
+A partir de la versión 2.0, el sistema utiliza **autenticación JWT basada en sesión**:
+
+- Los administradores inician sesión con su **email y contraseña** (no se requiere ADMIN_SECRET)
+- La sesión se mantiene entre dispositivos usando Supabase Auth
+- El backend valida el token JWT y verifica permisos de admin
+- Ya no es necesario introducir manualmente el ADMIN_SECRET desde el frontend
 
 ## 🎯 Archivos de Configuración Creados:
 - ✅ railway.json - Configuración de build y deploy
@@ -42,7 +46,8 @@ PORT=3000
 
 ## 📦 El servidor expone estos endpoints:
 - GET /_health - Verificar estado del servidor
-- GET /admin/users - Listar usuarios (requiere x-admin-secret)
-- POST /admin/user - Crear usuario admin (requiere x-admin-secret)
-- POST /admin/user/:id/make-admin - Hacer usuario admin (requiere x-admin-secret)
-- DELETE /admin/user/:id - Eliminar usuario (requiere x-admin-secret)
+- GET /admin/users - Listar usuarios (requiere Authorization: Bearer <token>)
+- POST /admin/users - Crear usuario (requiere Authorization: Bearer <token>)
+- PUT /admin/users/:id - Actualizar usuario (requiere Authorization: Bearer <token>)
+- DELETE /admin/users/:id - Eliminar usuario (requiere Authorization: Bearer <token>)
+- POST /admin/users/:id/toggle - Habilitar/deshabilitar usuario (requiere Authorization: Bearer <token>)

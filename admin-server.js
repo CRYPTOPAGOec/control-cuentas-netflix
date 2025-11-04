@@ -3,10 +3,10 @@
    Pequeño servidor Express para operaciones administrativas seguras.
 
    Seguridad: este servidor usa la SERVICE_ROLE KEY para operar contra Supabase.
-   Protege los endpoints con la cabecera `x-admin-secret` que debe coincidir con ADMIN_SECRET.
+   Protege los endpoints validando el JWT Bearer Token del usuario autenticado y verificando que sea admin.
 
    Uso (local):
-     - Copia env.admin.example.js -> env.admin.js y rellena SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY y ADMIN_SECRET
+     - Copia env.admin.example.js -> env.admin.js y rellena SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
      - npm install
      - npm run admin-server
 */
@@ -25,7 +25,6 @@ try{ adminEnv = require(localEnvPath); }catch(e){/* ignore if not present */}
 const SUPABASE_URL = process.env.SUPABASE_URL || adminEnv.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || adminEnv.SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || adminEnv.SUPABASE_ANON_KEY;
-const ADMIN_SECRET = process.env.ADMIN_SECRET || adminEnv.ADMIN_SECRET || 'local-dev-secret';
 const PORT = process.env.PORT || 3000;
 
 if(!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY){
@@ -82,24 +81,60 @@ app.use(express.static(path.join(__dirname), {
 // Servir la carpeta assets
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
-// Simple middleware to verify admin secret
-function verifySecret(req,res,next){ const secret = req.headers['x-admin-secret']; if(!secret || secret !== ADMIN_SECRET){ return res.status(401).json({ error: 'Unauthorized' }); } next(); }
+// Middleware para verificar JWT y que el usuario sea admin
+async function verifyAdminAuth(req, res, next) {
+  try {
+    const authHeader = req.headers['authorization'];
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Token de autenticación requerido' });
+    }
+    
+    const token = authHeader.substring(7); // Remover "Bearer "
+    
+    // Verificar el token usando Supabase
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    
+    if (error || !user) {
+      return res.status(401).json({ error: 'Token inválido o expirado' });
+    }
+    
+    // Verificar que el usuario sea admin usando RPC
+    const { data: isAdminData, error: rpcError } = await supabaseAdmin.rpc('is_admin', {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    const isAdmin = isAdminData === true || (Array.isArray(isAdminData) && isAdminData[0] === true);
+    
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Acceso denegado. Se requieren permisos de administrador.' });
+    }
+    
+    // Adjuntar información del usuario a la request
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error('Error en verifyAdminAuth:', err);
+    return res.status(500).json({ error: 'Error al verificar autenticación' });
+  }
+}
 
 // Root endpoint - API info (solo para /api/)
 app.get('/api', (req,res)=> res.json({ 
   message: 'Admin Server API', 
-  version: '1.0.0',
+  version: '2.0.0',
+  authentication: 'JWT Bearer Token',
   endpoints: [
     'GET /_health',
-    'GET /admin/users (requiere x-admin-secret)',
-    'POST /admin/users (requiere x-admin-secret)',
-    'PUT /admin/users/:id (requiere x-admin-secret)',
-    'DELETE /admin/users/:id (requiere x-admin-secret)',
-    'POST /admin/users/:id/toggle (requiere x-admin-secret)',
-    'GET /admin/access-codes (requiere x-admin-secret)',
-    'POST /admin/access-codes (requiere x-admin-secret)',
-    'PUT /admin/access-codes/:id (requiere x-admin-secret)',
-    'DELETE /admin/access-codes/:id (requiere x-admin-secret)'
+    'GET /admin/users (requiere Authorization: Bearer <token>)',
+    'POST /admin/users (requiere Authorization: Bearer <token>)',
+    'PUT /admin/users/:id (requiere Authorization: Bearer <token>)',
+    'DELETE /admin/users/:id (requiere Authorization: Bearer <token>)',
+    'POST /admin/users/:id/toggle (requiere Authorization: Bearer <token>)',
+    'GET /admin/access-codes (requiere Authorization: Bearer <token>)',
+    'POST /admin/access-codes (requiere Authorization: Bearer <token>)',
+    'PUT /admin/access-codes/:id (requiere Authorization: Bearer <token>)',
+    'DELETE /admin/access-codes/:id (requiere Authorization: Bearer <token>)'
   ]
 }));
 
@@ -109,12 +144,12 @@ app.get('/_health', (req,res)=> res.json({
   supabase_url: !!SUPABASE_URL,
   supabase_anon_key: !!SUPABASE_ANON_KEY,
   supabase_service_role_key: !!SUPABASE_SERVICE_ROLE_KEY,
-  admin_secret: !!ADMIN_SECRET,
+  auth_method: 'JWT',
   timestamp: new Date().toISOString()
 }));
 
 // List users (paginated)
-app.get('/admin/users', verifySecret, async (req,res)=>{
+app.get('/admin/users', verifyAdminAuth, async (req,res)=>{
   try{
     const { page = 1, per_page = 100 } = req.query;
     const offset = (Number(page)-1) * Number(per_page);
@@ -126,7 +161,7 @@ app.get('/admin/users', verifySecret, async (req,res)=>{
 });
 
 // Create user
-app.post('/admin/users', verifySecret, async (req,res)=>{
+app.post('/admin/users', verifyAdminAuth, async (req,res)=>{
   try{
     const { email, password } = req.body;
     if(!email) return res.status(400).json({ error: 'email required' });
@@ -137,7 +172,7 @@ app.post('/admin/users', verifySecret, async (req,res)=>{
 });
 
 // Update user (partial)
-app.put('/admin/users/:id', verifySecret, async (req,res)=>{
+app.put('/admin/users/:id', verifyAdminAuth, async (req,res)=>{
   try{
     const id = req.params.id;
     const { email, password, user_metadata } = req.body;
@@ -152,7 +187,7 @@ app.put('/admin/users/:id', verifySecret, async (req,res)=>{
 });
 
 // Delete user
-app.delete('/admin/users/:id', verifySecret, async (req,res)=>{
+app.delete('/admin/users/:id', verifyAdminAuth, async (req,res)=>{
   try{
     const id = req.params.id;
     if(!id) return res.status(400).json({ error: 'id required' });
@@ -162,7 +197,7 @@ app.delete('/admin/users/:id', verifySecret, async (req,res)=>{
 });
 
 // Toggle enable/disable user
-app.post('/admin/users/:id/toggle', verifySecret, async (req,res)=>{
+app.post('/admin/users/:id/toggle', verifyAdminAuth, async (req,res)=>{
   try{
     const id = req.params.id; const { enable } = req.body; if(!id) return res.status(400).json({ error: 'id required' });
     const updates = { is_disabled: enable === true ? false : true };
@@ -174,7 +209,7 @@ app.post('/admin/users/:id/toggle', verifySecret, async (req,res)=>{
 // ===== ACCESS CODES ENDPOINTS =====
 
 // List access codes
-app.get('/admin/access-codes', verifySecret, async (req,res)=>{
+app.get('/admin/access-codes', verifyAdminAuth, async (req,res)=>{
   try{
     const { data, error } = await supabaseAdmin
       .from('access_codes')
@@ -186,7 +221,7 @@ app.get('/admin/access-codes', verifySecret, async (req,res)=>{
 });
 
 // Create access code
-app.post('/admin/access-codes', verifySecret, async (req,res)=>{
+app.post('/admin/access-codes', verifyAdminAuth, async (req,res)=>{
   try{
     const { user_id, code, expires_at } = req.body;
     if(!user_id || !code) return res.status(400).json({ error: 'user_id and code required' });
@@ -203,7 +238,7 @@ app.post('/admin/access-codes', verifySecret, async (req,res)=>{
 });
 
 // Update access code
-app.put('/admin/access-codes/:id', verifySecret, async (req,res)=>{
+app.put('/admin/access-codes/:id', verifyAdminAuth, async (req,res)=>{
   try{
     const id = req.params.id;
     const { code, expires_at, is_active } = req.body;
@@ -226,7 +261,7 @@ app.put('/admin/access-codes/:id', verifySecret, async (req,res)=>{
 });
 
 // Delete access code
-app.delete('/admin/access-codes/:id', verifySecret, async (req,res)=>{
+app.delete('/admin/access-codes/:id', verifyAdminAuth, async (req,res)=>{
   try{
     const id = req.params.id;
     if(!id) return res.status(400).json({ error: 'id required' });
@@ -250,6 +285,6 @@ app.listen(PORT, HOST, ()=> {
   console.log(`🔗 Supabase URL: ${SUPABASE_URL}`);
   console.log(`🔑 SUPABASE_ANON_KEY configured: ${!!SUPABASE_ANON_KEY}`);
   console.log(`🔐 SUPABASE_SERVICE_ROLE_KEY configured: ${!!SUPABASE_SERVICE_ROLE_KEY}`);
-  console.log(`🛡️  ADMIN_SECRET configured: ${!!ADMIN_SECRET}`);
+  console.log(`� Auth method: JWT Bearer Token`);
   console.log('='.repeat(60));
 });

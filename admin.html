@@ -156,7 +156,7 @@
           </button>
         </div>
         <div class="mt-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg text-xs text-blue-200">
-          <strong>💡 Variables disponibles:</strong> ${'{propietario}'}, ${'{servicio}'}, ${'{precio}'}, ${'{fechaPago}'}, ${'{fechaCaducidad}'}
+          <strong>💡 Variables disponibles:</strong> ${'{propietario}'}, ${'{correo}'}, ${'{servicio}'}, ${'{precio}'}, ${'{fechaPago}'}, ${'{fechaCaducidad}'}
         </div>
       </section>
 
@@ -269,6 +269,9 @@
                 <div class="grid grid-cols-2 gap-2">
                   <button type="button" onclick="insertVariable('propietario')" class="px-3 py-2 bg-black/30 hover:bg-black/40 rounded text-xs font-mono border border-white/10">
                     ${'{propietario}'}
+                  </button>
+                  <button type="button" onclick="insertVariable('correo')" class="px-3 py-2 bg-black/30 hover:bg-black/40 rounded text-xs font-mono border border-white/10">
+                    ${'{correo}'}
                   </button>
                   <button type="button" onclick="insertVariable('servicio')" class="px-3 py-2 bg-black/30 hover:bg-black/40 rounded text-xs font-mono border border-white/10">
                     ${'{servicio}'}
@@ -431,6 +434,9 @@
       const sb = (typeof supabase !== 'undefined' && supabase.createClient) ? supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : (window.createClient ? window.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null);
       if(!sb){ document.getElementById('admin-warning').classList.remove('hidden'); document.getElementById('admin-warning').textContent = 'No se pudo inicializar Supabase.'; return; }
 
+      // Guardar cliente Supabase en window para uso global
+      window.__supabase = sb;
+
       // Cliente admin con service role key (solo disponible en desarrollo local)
       // En producción, las operaciones admin se hacen a través del servidor backend
       const adminClient = window.SUPABASE_SERVICE_ROLE_KEY 
@@ -471,17 +477,30 @@
         window.location.href='index.html'; 
       });
 
-      // Helper: Obtener el admin secret (debería estar configurado como variable de entorno o prompt)
-      const ADMIN_SECRET = localStorage.getItem('admin_secret') || prompt('Ingresa el ADMIN_SECRET para operaciones administrativas:');
-      if(ADMIN_SECRET) localStorage.setItem('admin_secret', ADMIN_SECRET);
+      // Helper: Obtener el token JWT de la sesión actual
+      async function getAuthToken() {
+        try {
+          const { data } = await sb.auth.getSession();
+          return data?.session?.access_token || null;
+        } catch(e) {
+          console.error('Error obteniendo token:', e);
+          return null;
+        }
+      }
 
-      // Helper: Llamar a la API del servidor
+      // Helper: Llamar a la API del servidor con autenticación JWT
       async function callAdminAPI(endpoint, method = 'GET', body = null) {
+        const token = await getAuthToken();
+        
+        if (!token) {
+          throw new Error('No hay sesión activa. Por favor inicia sesión nuevamente.');
+        }
+        
         const options = {
           method,
           headers: {
             'Content-Type': 'application/json',
-            'x-admin-secret': ADMIN_SECRET
+            'Authorization': `Bearer ${token}`
           }
         };
         if (body) options.body = JSON.stringify(body);
@@ -887,13 +906,14 @@
 
       // ===== GESTIÓN DE PLANTILLAS DE MENSAJES WHATSAPP =====
       
-      // Plantillas por defecto
-      const defaultTemplates = {
+      // Plantillas por defecto (disponibles globalmente)
+      window.defaultTemplates = {
         pago_3dias: `Hola {propietario},
 
 Te recordamos que tu pago de {servicio} vence en *3 días* ({fechaPago}).
 
-💵 Monto: ${'{precio}'}
+� Cuenta: ${'{correo}'}
+�💵 Monto: ${'{precio}'}
 
 Por favor realiza tu pago a tiempo para evitar interrupciones en el servicio.
 
@@ -903,7 +923,8 @@ Por favor realiza tu pago a tiempo para evitar interrupciones en el servicio.
 
 ⚠️ Tu pago de {servicio} vence en *2 días* ({fechaPago}).
 
-💵 Monto: ${'{precio}'}
+� Cuenta: ${'{correo}'}
+�💵 Monto: ${'{precio}'}
 
 Te pedimos realizar el pago pronto para mantener tu servicio activo.
 
@@ -913,6 +934,7 @@ Te pedimos realizar el pago pronto para mantener tu servicio activo.
 
 🚨 *IMPORTANTE:* Tu pago de {servicio} vence *MAÑANA* ({fechaPago}).
 
+📧 Cuenta: ${'{correo}'}
 💵 Monto: ${'{precio}'}
 
 Por favor realiza tu pago cuanto antes para evitar la suspensión del servicio.
@@ -923,7 +945,8 @@ Gracias por tu atención.`,
 
 🔴 *URGENTE:* Tu pago de {servicio} vence *HOY* ({fechaPago}).
 
-💵 Monto: ${'{precio}'}
+� Cuenta: ${'{correo}'}
+�💵 Monto: ${'{precio}'}
 
 Es necesario que realices el pago hoy mismo para mantener tu servicio activo.
 
@@ -933,7 +956,8 @@ Es necesario que realices el pago hoy mismo para mantener tu servicio activo.
 
 Notamos que tu pago de {servicio} está *atrasado* desde {fechaPago}.
 
-💵 Monto: ${'{precio}'}
+� Cuenta: ${'{correo}'}
+�💵 Monto: ${'{precio}'}
 
 Para reactivar tu servicio, te pedimos regularizar tu pago lo antes posible.
 
@@ -943,6 +967,7 @@ Quedamos atentos. Gracias.`,
 
 Lamentamos informarte que tu acceso a {servicio} ha sido *suspendido* por falta de pago.
 
+📧 Cuenta: ${'{correo}'}
 💵 Monto pendiente: ${'{precio}'}
 📅 Fecha de pago vencida: {fechaPago}
 
@@ -954,9 +979,10 @@ Gracias por tu comprensión.`,
 
 Te informamos que tu cuenta de {servicio} está próxima a vencer el *{fechaCaducidad}*.
 
-Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
-
+📧 Cuenta: ${'{correo}'}
 💵 Precio de renovación: ${'{precio}'}
+
+Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
 
 ¡Gracias por confiar en nosotros! 😊`,
 
@@ -966,6 +992,7 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
 
 Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
 
+📧 Cuenta: ${'{correo}'}
 📅 Próximo pago: {fechaPago}
 📅 Servicio válido hasta: {fechaCaducidad}
 
@@ -991,10 +1018,10 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
           try {
             return JSON.parse(saved);
           } catch (e) {
-            return { ...defaultTemplates };
+            return { ...window.defaultTemplates };
           }
         }
-        return { ...defaultTemplates };
+        return { ...window.defaultTemplates };
       }
 
       // Guardar plantillas en localStorage
@@ -1081,7 +1108,7 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
       // Restaurar plantillas por defecto
       document.getElementById('btn-reset-templates')?.addEventListener('click', function() {
         if (confirm('¿Estás seguro de que deseas restaurar todas las plantillas a sus valores por defecto? Esta acción no se puede deshacer.')) {
-          currentTemplates = { ...defaultTemplates };
+          currentTemplates = { ...window.defaultTemplates };
           saveTemplates(currentTemplates);
           
           const successMsg = document.createElement('div');
@@ -1095,6 +1122,57 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
         }
       });
 
+      // ===== FUNCIONES PARA OBTENER CUENTAS =====
+      
+      // Transformar objeto de base de datos a formato de la aplicación
+      window.fromDbObject = function(row){
+        return {
+          id: row.id,
+          appId: row.app_id,
+          userId: row.user_id,
+          propietario: row.propietario,
+          correo: row.correo,
+          telefono: row.telefono,
+          servicio: row.servicio,
+          fechaCompra: row.fecha_compra,
+          fechaPago: row.fecha_pago,
+          fechaCaducidad: row.fecha_caducidad,
+          precio: row.precio,
+          duracionMeses: row.duracion_meses,
+          notas: row.notas,
+          displayId: row.display_id
+        };
+      }
+
+      // Obtener todas las cuentas (para administradores, sin filtro de user_id)
+      window.dbFetchAccounts = async function(){
+        const client = window.__supabase;
+        if (!client) {
+          console.error('Supabase no inicializado');
+          throw new Error('Supabase no inicializado');
+        }
+        
+        try {
+          console.log('Consultando cuentas de Netflix...');
+          // Los administradores pueden ver todas las cuentas
+          const { data, error } = await client.from('netflix_accounts').select('*');
+          
+          if (error) { 
+            console.error('Error fetch accounts:', error);
+            console.error('Código de error:', error.code);
+            console.error('Mensaje:', error.message);
+            console.error('Detalles:', error.details);
+            throw new Error(`Error al obtener cuentas: ${error.message || 'Error desconocido'}`);
+          }
+          
+          console.log(`✅ ${(data || []).length} cuentas obtenidas correctamente`);
+          return (data || []).map(window.fromDbObject);
+        } catch (err) {
+          console.error('Error en dbFetchAccounts:', err);
+          throw err;
+        }
+      }
+
       // ===== SISTEMA DE NOTIFICACIONES PENDIENTES =====
       
       let pendingNotifications = [];
@@ -1102,10 +1180,42 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
 
       // Cargar notificaciones pendientes
       window.loadPendingNotifications = async function() {
+        const refreshBtn = document.getElementById('btn-refresh-pending');
+        const listContainer = document.getElementById('pending-notifications-list');
+        
         try {
-          const allAccounts = await dbFetchAccounts();
-          const filterType = document.getElementById('filter-type').value;
-          const onlyWithPhone = document.getElementById('filter-with-phone').checked;
+          console.log('Iniciando carga de notificaciones pendientes...');
+          
+          // Deshabilitar botón y mostrar estado de carga
+          if (refreshBtn) {
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '⏳ Cargando...';
+          }
+          
+          // Mostrar mensaje de carga
+          if (listContainer) {
+            listContainer.innerHTML = `
+              <div class="text-center py-12 muted text-sm">
+                <div class="text-4xl mb-2 animate-pulse">🔄</div>
+                <div>Cargando notificaciones...</div>
+              </div>
+            `;
+          }
+          
+          // Verificar que los elementos del DOM existan
+          const filterTypeEl = document.getElementById('filter-type');
+          const filterPhoneEl = document.getElementById('filter-with-phone');
+          
+          if (!filterTypeEl || !filterPhoneEl) {
+            console.error('Elementos del filtro no encontrados en el DOM');
+            throw new Error('Elementos del filtro no encontrados');
+          }
+          
+          const allAccounts = await window.dbFetchAccounts();
+          console.log('Cuentas obtenidas:', allAccounts.length);
+          
+          const filterType = filterTypeEl.value;
+          const onlyWithPhone = filterPhoneEl.checked;
           
           // Filtrar cuentas que necesitan notificación
           const notifications = [];
@@ -1167,15 +1277,37 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
           notifications.sort((a, b) => b.priority - a.priority);
           pendingNotifications = notifications;
 
+          console.log('Notificaciones procesadas:', notifications.length);
           renderNotificationsList();
+          
+          // Restaurar botón con éxito
+          if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.innerHTML = '🔄 Actualizar';
+          }
         } catch (err) {
           console.error('Error loading pending notifications:', err);
-          document.getElementById('pending-notifications-list').innerHTML = `
-            <div class="text-center py-12 text-rose-400 text-sm">
-              <div class="text-4xl mb-2">❌</div>
-              Error al cargar notificaciones
-            </div>
-          `;
+          console.error('Stack:', err.stack);
+          
+          const listContainer = document.getElementById('pending-notifications-list');
+          if (listContainer) {
+            listContainer.innerHTML = `
+              <div class="text-center py-12 text-rose-400 text-sm">
+                <div class="text-4xl mb-2">❌</div>
+                <div>Error al cargar notificaciones</div>
+                <div class="text-xs mt-2 text-white/40">${err.message || 'Error desconocido'}</div>
+                <button onclick="loadPendingNotifications()" class="mt-4 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded text-sm text-white transition">
+                  🔄 Reintentar
+                </button>
+              </div>
+            `;
+          }
+          
+          // Restaurar botón en caso de error
+          if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.innerHTML = '🔄 Actualizar';
+          }
         }
       };
 
@@ -1220,10 +1352,15 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
                     <span class="font-semibold">${account.propietario || 'Sin nombre'}</span>
                     <span class="px-2 py-0.5 ${typeInfo.color} rounded text-xs">${typeInfo.label}</span>
                   </div>
-                  <div class="text-xs muted flex items-center gap-3">
-                    <span>📱 ${account.telefono || 'Sin teléfono'}</span>
-                    <span>💰 $${account.precio || 0}</span>
-                    ${notif.daysToPayment !== null ? `<span>📅 ${notif.daysToPayment >= 0 ? 'En ' + notif.daysToPayment + ' días' : 'Atrasado ' + Math.abs(notif.daysToPayment) + ' días'}</span>` : ''}
+                  <div class="text-xs muted flex flex-col gap-1">
+                    <div class="flex items-center gap-3">
+                      <span>� ${account.correo || 'Sin correo'}</span>
+                      <span>�📱 ${account.telefono || 'Sin teléfono'}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span>💰 $${account.precio || 0}</span>
+                      ${notif.daysToPayment !== null ? `<span>📅 ${notif.daysToPayment >= 0 ? 'En ' + notif.daysToPayment + ' días' : 'Atrasado ' + Math.abs(notif.daysToPayment) + ' días'}</span>` : ''}
+                    </div>
                   </div>
                 </div>
                 <button onclick="sendSingleNotification(${index})" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 rounded text-xs text-white transition">
@@ -1248,19 +1385,22 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
         if (!notif) return;
 
         const account = notif.account;
-        const templates = loadMessageTemplates() || {};
+        const templates = loadMessageTemplates();
         
-        // Usar la plantilla configurada o la por defecto
-        let message = templates[notif.type] || '';
+        // Usar la plantilla configurada
+        let message = templates[notif.type];
         
         if (!message) {
-          alert('No hay plantilla configurada para este tipo de notificación. Por favor, configúrala en la sección de Plantillas.');
+          console.error('Plantilla no encontrada para tipo:', notif.type);
+          console.log('Plantillas disponibles:', Object.keys(templates));
+          alert(`No hay plantilla configurada para el tipo "${notif.type}". Por favor, verifica la configuración de plantillas.`);
           return;
         }
 
         // Procesar plantilla
         message = message
           .replace(/{propietario}/g, account.propietario || 'Cliente')
+          .replace(/{correo}/g, account.correo || 'Sin correo')
           .replace(/{servicio}/g, account.servicio || 'Netflix')
           .replace(/{precio}/g, '$' + (account.precio || 0))
           .replace(/{fechaPago}/g, formatDate(account.fechaPago))
@@ -1303,7 +1443,7 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
         progressContainer.classList.remove('hidden');
         document.getElementById('btn-send-all-sequential').disabled = true;
 
-        const templates = loadMessageTemplates() || {};
+        const templates = loadMessageTemplates();
         let sent = 0;
         const total = checkboxes.length;
 
@@ -1316,11 +1456,12 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
           if (!notif) continue;
 
           const account = notif.account;
-          let message = templates[notif.type] || '';
+          let message = templates[notif.type];
 
           if (message) {
             message = message
               .replace(/{propietario}/g, account.propietario || 'Cliente')
+              .replace(/{correo}/g, account.correo || 'Sin correo')
               .replace(/{servicio}/g, account.servicio || 'Netflix')
               .replace(/{precio}/g, '$' + (account.precio || 0))
               .replace(/{fechaPago}/g, formatDate(account.fechaPago))
@@ -1332,17 +1473,32 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
             const encodedMessage = encodeURIComponent(message);
             const whatsappUrl = `https://wa.me/${phone.replace('+', '')}?text=${encodedMessage}`;
             
-            window.open(whatsappUrl, '_blank');
+            // Usar nombre único para cada ventana para evitar reutilización
+            const windowName = `whatsapp_${Date.now()}_${index}`;
+            const newWindow = window.open(whatsappUrl, windowName);
+            
+            // Verificar si la ventana fue bloqueada
+            if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+              console.warn('Popup bloqueado para:', account.propietario);
+              progressMessage.textContent = `⚠️ Popup bloqueado. Por favor, permite ventanas emergentes`;
+              // Pausar el proceso
+              alert('El navegador bloqueó la apertura de ventanas emergentes.\n\nPor favor:\n1. Permite ventanas emergentes para este sitio\n2. Haz clic en Aceptar para continuar');
+            }
+            
             checkbox.checked = false;
             sent++;
 
             progressText.textContent = `${sent}/${total}`;
             progressBar.style.width = `${(sent / total) * 100}%`;
-            progressMessage.textContent = `Enviado a ${account.propietario || 'Cliente'}... Siguiente en ${interval/1000}s`;
-          }
-
-          if (sent < total) {
-            await new Promise(resolve => setTimeout(resolve, interval));
+            progressMessage.textContent = `Enviado a ${account.propietario || 'Cliente'} (${account.correo || 'Sin correo'})... Siguiente en ${interval/1000}s`;
+            
+            // Esperar el intervalo antes del siguiente envío
+            if (sent < total) {
+              await new Promise(resolve => setTimeout(resolve, interval));
+            }
+          } else {
+            console.warn(`Plantilla no encontrada para tipo: ${notif.type}. Saltando notificación.`);
+            progressMessage.textContent = `⚠️ Plantilla no encontrada para ${account.propietario || 'Cliente'}`;
           }
         }
 
@@ -1368,12 +1524,16 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
         const saved = localStorage.getItem('whatsapp_templates');
         if (saved) {
           try {
-            return JSON.parse(saved);
+            const templates = JSON.parse(saved);
+            // Combinar con defaultTemplates por si faltan algunas plantillas
+            return { ...window.defaultTemplates, ...templates };
           } catch (e) {
-            return null;
+            console.error('Error al cargar plantillas:', e);
+            return { ...window.defaultTemplates };
           }
         }
-        return null;
+        // Si no hay plantillas guardadas, usar las por defecto
+        return { ...window.defaultTemplates };
       }
 
       // Cargar datos iniciales

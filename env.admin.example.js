@@ -19,10 +19,6 @@ module.exports = {
   // Reemplaza por la SERVICE_ROLE KEY desde Settings -> API en el dashboard de Supabase.
   SUPABASE_SERVICE_ROLE_KEY: '<tu-service-role-key-aqui>',
 
-  // Secreta para proteger el servidor admin (elige un valor fuerte). El cliente debe enviar este valor
-  // en la cabecera `x-admin-secret` para usar los endpoints admin.
-  ADMIN_SECRET: '<tu-admin-secret-fuerte-aqui>',
-
   // Opcional: cadena de conexión Postgres para tareas administrativas y migraciones (solo servidores)
   PG_CONNECTION: 'postgresql://usuario:password@host:port/postgres'
 };
