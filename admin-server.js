@@ -45,9 +45,16 @@ app.use(bodyParser.json());
 
 // Endpoint dinámico para env.js - genera el archivo con las variables de entorno
 app.get('/env.js', (req, res) => {
+  console.log('[env.js] Request received');
+  console.log('[env.js] SUPABASE_URL exists:', !!SUPABASE_URL);
+  console.log('[env.js] SUPABASE_ANON_KEY exists:', !!SUPABASE_ANON_KEY);
+  
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.error('[env.js] Missing configuration!');
     return res.status(500).type('application/javascript').send(
-      `console.error('Error: Supabase no configurado. Contacta al administrador.');
+      `console.error('Error: Supabase no configurado en el servidor.');
+       console.error('SUPABASE_URL: ${!!SUPABASE_URL}');
+       console.error('SUPABASE_ANON_KEY: ${!!SUPABASE_ANON_KEY}');
        window.SUPABASE_URL = null;
        window.SUPABASE_ANON_KEY = null;`
     );
@@ -59,8 +66,10 @@ window.SUPABASE_URL = '${SUPABASE_URL}';
 window.SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}';
 
 console.info('✅ Configuración de Supabase cargada correctamente');
+console.info('URL:', window.SUPABASE_URL);
 `;
   
+  console.log('[env.js] Sending configuration successfully');
   res.type('application/javascript').send(envContent);
 });
 
@@ -91,7 +100,14 @@ app.get('/api', (req,res)=> res.json({
 }));
 
 // Health
-app.get('/_health', (req,res)=> res.json({ ok:true, env: !!SUPABASE_SERVICE_ROLE_KEY }));
+app.get('/_health', (req,res)=> res.json({ 
+  ok: true, 
+  supabase_url: !!SUPABASE_URL,
+  supabase_anon_key: !!SUPABASE_ANON_KEY,
+  supabase_service_role_key: !!SUPABASE_SERVICE_ROLE_KEY,
+  admin_secret: !!ADMIN_SECRET,
+  timestamp: new Date().toISOString()
+}));
 
 // List users (paginated)
 app.get('/admin/users', verifySecret, async (req,res)=>{
@@ -154,7 +170,12 @@ app.post('/admin/users/:id/toggle', verifySecret, async (req,res)=>{
 // Railway requiere escuchar en 0.0.0.0 para aceptar conexiones externas
 const HOST = process.env.HOST || '0.0.0.0';
 app.listen(PORT, HOST, ()=> {
-  console.log(`Admin server listening on http://${HOST}:${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Supabase URL: ${SUPABASE_URL}`);
+  console.log('='.repeat(60));
+  console.log(`🚀 Admin server listening on http://${HOST}:${PORT}`);
+  console.log(`📦 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Supabase URL: ${SUPABASE_URL}`);
+  console.log(`🔑 SUPABASE_ANON_KEY configured: ${!!SUPABASE_ANON_KEY}`);
+  console.log(`🔐 SUPABASE_SERVICE_ROLE_KEY configured: ${!!SUPABASE_SERVICE_ROLE_KEY}`);
+  console.log(`🛡️  ADMIN_SECRET configured: ${!!ADMIN_SECRET}`);
+  console.log('='.repeat(60));
 });
