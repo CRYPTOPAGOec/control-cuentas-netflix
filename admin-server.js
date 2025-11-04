@@ -24,6 +24,7 @@ try{ adminEnv = require(localEnvPath); }catch(e){/* ignore if not present */}
 
 const SUPABASE_URL = process.env.SUPABASE_URL || adminEnv.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || adminEnv.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || adminEnv.SUPABASE_ANON_KEY;
 const ADMIN_SECRET = process.env.ADMIN_SECRET || adminEnv.ADMIN_SECRET || 'local-dev-secret';
 const PORT = process.env.PORT || 3000;
 
@@ -32,11 +33,36 @@ if(!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY){
   process.exit(1);
 }
 
+if(!SUPABASE_ANON_KEY){
+  console.warn('WARNING: SUPABASE_ANON_KEY not configured. Frontend authentication may not work.');
+}
+
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
+
+// Endpoint dinámico para env.js - genera el archivo con las variables de entorno
+app.get('/env.js', (req, res) => {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return res.status(500).type('application/javascript').send(
+      `console.error('Error: Supabase no configurado. Contacta al administrador.');
+       window.SUPABASE_URL = null;
+       window.SUPABASE_ANON_KEY = null;`
+    );
+  }
+  
+  const envContent = `
+// Configuración generada dinámicamente desde el servidor
+window.SUPABASE_URL = '${SUPABASE_URL}';
+window.SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}';
+
+console.info('✅ Configuración de Supabase cargada correctamente');
+`;
+  
+  res.type('application/javascript').send(envContent);
+});
 
 // Servir archivos estáticos (HTML, CSS, JS, imágenes)
 app.use(express.static(path.join(__dirname), {

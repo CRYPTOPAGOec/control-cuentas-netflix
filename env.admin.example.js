@@ -11,6 +11,10 @@ module.exports = {
   // URL pública de tu proyecto Supabase
   SUPABASE_URL: 'https://<tu-proyecto>.supabase.co',
 
+  // CLAVE ANON (pública - se usa en el frontend)
+  // Reemplaza por la ANON KEY desde Settings -> API en el dashboard de Supabase.
+  SUPABASE_ANON_KEY: '<tu-anon-key-aqui>',
+
   // CLAVE SERVICE ROLE (muy sensible). Usar solo en servidores de confianza.
   // Reemplaza por la SERVICE_ROLE KEY desde Settings -> API en el dashboard de Supabase.
   SUPABASE_SERVICE_ROLE_KEY: '<tu-service-role-key-aqui>',

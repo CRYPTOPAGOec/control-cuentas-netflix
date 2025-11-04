@@ -7,6 +7,7 @@ Debes configurar estas variables en el dashboard de Railway:
 ### 🔑 Variables Obligatorias:
 ```
 SUPABASE_URL=https://tu-proyecto.supabase.co
+SUPABASE_ANON_KEY=tu_anon_key_aqui
 SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key_aqui
 ADMIN_SECRET=tu_secreto_admin_muy_seguro_aqui
 PORT=3000
@@ -18,7 +19,11 @@ PORT=3000
    - Ve a tu proyecto en Supabase
    - Settings > API > Project URL
 
-2. **SUPABASE_SERVICE_ROLE_KEY**: 
+2. **SUPABASE_ANON_KEY**:
+   - Settings > API > Project API keys > anon public key
+   - ℹ️ Esta key es pública y se usa en el frontend
+
+3. **SUPABASE_SERVICE_ROLE_KEY**: 
    - Settings > API > Project API keys > service_role key
    - ⚠️ IMPORTANTE: Esta key es secreta, nunca la compartas
 
