@@ -471,12 +471,42 @@
         window.location.href='index.html'; 
       });
 
-      // Funciones administrativas usando el cliente con service role
+      // Helper: Obtener el admin secret (debería estar configurado como variable de entorno o prompt)
+      const ADMIN_SECRET = localStorage.getItem('admin_secret') || prompt('Ingresa el ADMIN_SECRET para operaciones administrativas:');
+      if(ADMIN_SECRET) localStorage.setItem('admin_secret', ADMIN_SECRET);
+
+      // Helper: Llamar a la API del servidor
+      async function callAdminAPI(endpoint, method = 'GET', body = null) {
+        const options = {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-secret': ADMIN_SECRET
+          }
+        };
+        if (body) options.body = JSON.stringify(body);
+        
+        const response = await fetch(endpoint, options);
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || `HTTP ${response.status}`);
+        }
+        
+        return data;
+      }
+
+      // Funciones administrativas usando el servidor backend (o adminClient en local)
       async function adminCreateUser({ email, password }){
-        try{ 
-          const resp = await adminClient.auth.admin.createUser({ email, password, email_confirm: true }); 
-          if(resp.error) throw resp.error;
-          return resp; 
+        try{
+          // Si adminClient existe (desarrollo local), usarlo
+          if (adminClient) {
+            const resp = await adminClient.auth.admin.createUser({ email, password, email_confirm: true }); 
+            if(resp.error) throw resp.error;
+            return resp;
+          }
+          // Si no, usar la API del servidor
+          return await callAdminAPI('/admin/users', 'POST', { email, password });
         }catch(e){ throw e; } 
       }
 
@@ -485,25 +515,35 @@
           const updates = {};
           if(email) updates.email = email;
           if(password) updates.password = password;
-          const resp = await adminClient.auth.admin.updateUserById(id, updates); 
-          if(resp.error) throw resp.error;
-          return resp; 
+          
+          if (adminClient) {
+            const resp = await adminClient.auth.admin.updateUserById(id, updates); 
+            if(resp.error) throw resp.error;
+            return resp;
+          }
+          return await callAdminAPI(`/admin/users/${id}`, 'PUT', updates); 
         }catch(e){ throw e; } 
       }
 
       async function adminDeleteUser(id){ 
-        try{ 
-          const resp = await adminClient.auth.admin.deleteUser(id); 
-          if(resp.error) throw resp.error;
-          return resp; 
+        try{
+          if (adminClient) {
+            const resp = await adminClient.auth.admin.deleteUser(id); 
+            if(resp.error) throw resp.error;
+            return resp;
+          }
+          return await callAdminAPI(`/admin/users/${id}`, 'DELETE'); 
         }catch(e){ throw e; } 
       }
 
       async function adminToggleUser(id, enable){ 
-        try{ 
-          const resp = await adminClient.auth.admin.updateUserById(id, { ban_duration: enable ? 'none' : '876000h' }); 
-          if(resp.error) throw resp.error;
-          return resp; 
+        try{
+          if (adminClient) {
+            const resp = await adminClient.auth.admin.updateUserById(id, { ban_duration: enable ? 'none' : '876000h' }); 
+            if(resp.error) throw resp.error;
+            return resp;
+          }
+          return await callAdminAPI(`/admin/users/${id}/toggle`, 'POST', { enable }); 
         }catch(e){ throw e; } 
       }
 
@@ -511,10 +551,16 @@
         const tbody = document.getElementById('admin-users-body'); 
         tbody.innerHTML = '<tr><td colspan="5" class="p-4 muted text-center">Cargando...</td></tr>';
         try{
-          const { data, error } = await adminClient.auth.admin.listUsers();
-          if(error) throw error;
+          let users;
+          if (adminClient) {
+            const { data, error } = await adminClient.auth.admin.listUsers();
+            if(error) throw error;
+            users = data?.users || [];
+          } else {
+            const result = await callAdminAPI('/admin/users');
+            users = result?.users || [];
+          }
           
-          let users = data.users || data || [];
           if(!Array.isArray(users)) users = [];
           
           if(users.length===0){ 
@@ -522,12 +568,17 @@
             return; 
           }
           
-          // Obtener códigos de acceso para todos los usuarios usando adminClient
-          const { data: accessCodes } = await adminClient.from('access_codes')
-            .select('*')
-            .eq('is_active', true)
-            .gt('expires_at', new Date().toISOString())
-            .order('created_at', { ascending: false });
+          // Obtener códigos de acceso para todos los usuarios
+          let accessCodes = [];
+          if (adminClient) {
+            const { data } = await adminClient.from('access_codes')
+              .select('*')
+              .eq('is_active', true);
+            accessCodes = data || [];
+          } else {
+            const result = await callAdminAPI('/admin/access-codes');
+            accessCodes = result?.data || [];
+          }
           
           const codesMap = {};
           if(accessCodes){
@@ -607,31 +658,50 @@
         try{
           // Crear usuario con contraseña temporal aleatoria (no se usará)
           const tempPassword = Math.random().toString(36).slice(-16) + Math.random().toString(36).slice(-16);
-          const { data: userData, error: userError } = await adminClient.auth.admin.createUser({
-            email,
-            password: tempPassword,
-            email_confirm: true
-          });
           
-          if(userError) throw userError;
-          const userId = userData.user.id;
+          let userId;
+          if (adminClient) {
+            const { data: userData, error: userError } = await adminClient.auth.admin.createUser({
+              email,
+              password: tempPassword,
+              email_confirm: true
+            });
+            if(userError) throw userError;
+            userId = userData.user.id;
+          } else {
+            const result = await callAdminAPI('/admin/users', 'POST', { email, password: tempPassword });
+            if(result.error) throw result.error;
+            userId = result.data?.user?.id || result.user?.id;
+          }
           
-          // Generar código de acceso usando adminClient (service role) para evitar RLS
+          // Generar código de acceso
           const code = generateCode();
           const expiresAt = new Date();
           expiresAt.setDate(expiresAt.getDate() + parseInt(durationDays));
           
-          const { data: codeData, error: codeError } = await adminClient.from('access_codes').insert({
-            user_id: userId,
-            code: code,
-            duration_days: parseInt(durationDays),
-            expires_at: expiresAt.toISOString(),
-            is_active: true
-          }).select().single();
+          let codeData;
+          if (adminClient) {
+            const { data, error: codeError } = await adminClient.from('access_codes').insert({
+              user_id: userId,
+              code: code,
+              duration_days: parseInt(durationDays),
+              expires_at: expiresAt.toISOString(),
+              is_active: true
+            }).select().single();
+            if(codeError) throw codeError;
+            codeData = data;
+          } else {
+            const result = await callAdminAPI('/admin/access-codes', 'POST', {
+              user_id: userId,
+              code: code,
+              duration_days: parseInt(durationDays),
+              expires_at: expiresAt.toISOString(),
+              is_active: true
+            });
+            codeData = result?.data?.[0] || result?.data;
+          }
           
-          if(codeError) throw codeError;
-          
-          return { user: userData.user, code: codeData };
+          return { user: { id: userId, email }, code: codeData };
         }catch(e){
           throw e;
         }
@@ -640,26 +710,48 @@
       // Función para generar nuevo código para usuario existente
       async function generateNewCode(userId, durationDays){
         try{
-          // Desactivar códigos anteriores usando adminClient
-          await adminClient.from('access_codes')
-            .update({ is_active: false })
-            .eq('user_id', userId);
+          // Desactivar códigos anteriores
+          if (adminClient) {
+            await adminClient.from('access_codes')
+              .update({ is_active: false })
+              .eq('user_id', userId);
+          } else {
+            // Obtener códigos del usuario y desactivarlos
+            const codes = await callAdminAPI('/admin/access-codes');
+            const userCodes = (codes?.data || []).filter(c => c.user_id === userId);
+            for (const code of userCodes) {
+              await callAdminAPI(`/admin/access-codes/${code.id}`, 'PUT', { is_active: false });
+            }
+          }
           
-          // Generar nuevo código usando adminClient
+          // Generar nuevo código
           const code = generateCode();
           const expiresAt = new Date();
           expiresAt.setDate(expiresAt.getDate() + parseInt(durationDays));
           
-          const { data, error } = await adminClient.from('access_codes').insert({
-            user_id: userId,
-            code: code,
-            duration_days: parseInt(durationDays),
-            expires_at: expiresAt.toISOString(),
-            is_active: true
-          }).select().single();
+          let codeData;
+          if (adminClient) {
+            const { data, error } = await adminClient.from('access_codes').insert({
+              user_id: userId,
+              code: code,
+              duration_days: parseInt(durationDays),
+              expires_at: expiresAt.toISOString(),
+              is_active: true
+            }).select().single();
+            if(error) throw error;
+            codeData = data;
+          } else {
+            const result = await callAdminAPI('/admin/access-codes', 'POST', {
+              user_id: userId,
+              code: code,
+              duration_days: parseInt(durationDays),
+              expires_at: expiresAt.toISOString(),
+              is_active: true
+            });
+            codeData = result?.data?.[0] || result?.data;
+          }
           
-          if(error) throw error;
-          return data;
+          return codeData;
         }catch(e){
           throw e;
         }

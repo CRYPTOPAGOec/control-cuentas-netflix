@@ -95,7 +95,11 @@ app.get('/api', (req,res)=> res.json({
     'POST /admin/users (requiere x-admin-secret)',
     'PUT /admin/users/:id (requiere x-admin-secret)',
     'DELETE /admin/users/:id (requiere x-admin-secret)',
-    'POST /admin/users/:id/toggle (requiere x-admin-secret)'
+    'POST /admin/users/:id/toggle (requiere x-admin-secret)',
+    'GET /admin/access-codes (requiere x-admin-secret)',
+    'POST /admin/access-codes (requiere x-admin-secret)',
+    'PUT /admin/access-codes/:id (requiere x-admin-secret)',
+    'DELETE /admin/access-codes/:id (requiere x-admin-secret)'
   ]
 }));
 
@@ -164,6 +168,76 @@ app.post('/admin/users/:id/toggle', verifySecret, async (req,res)=>{
     const updates = { is_disabled: enable === true ? false : true };
     const resp = await supabaseAdmin.auth.admin.updateUserById(id, updates);
     return res.json(resp);
+  }catch(err){ console.error(err); return res.status(500).json({ error: String(err) }); }
+});
+
+// ===== ACCESS CODES ENDPOINTS =====
+
+// List access codes
+app.get('/admin/access-codes', verifySecret, async (req,res)=>{
+  try{
+    const { data, error } = await supabaseAdmin
+      .from('access_codes')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if(error) return res.status(500).json({ error });
+    return res.json({ data });
+  }catch(err){ console.error(err); return res.status(500).json({ error: String(err) }); }
+});
+
+// Create access code
+app.post('/admin/access-codes', verifySecret, async (req,res)=>{
+  try{
+    const { user_id, code, expires_at } = req.body;
+    if(!user_id || !code) return res.status(400).json({ error: 'user_id and code required' });
+    
+    const { data, error } = await supabaseAdmin.from('access_codes').insert({
+      user_id,
+      code,
+      expires_at: expires_at || null
+    }).select();
+    
+    if(error) return res.status(500).json({ error });
+    return res.json({ data });
+  }catch(err){ console.error(err); return res.status(500).json({ error: String(err) }); }
+});
+
+// Update access code
+app.put('/admin/access-codes/:id', verifySecret, async (req,res)=>{
+  try{
+    const id = req.params.id;
+    const { code, expires_at, is_active } = req.body;
+    if(!id) return res.status(400).json({ error: 'id required' });
+    
+    const updates = {};
+    if(code !== undefined) updates.code = code;
+    if(expires_at !== undefined) updates.expires_at = expires_at;
+    if(is_active !== undefined) updates.is_active = is_active;
+    
+    const { data, error } = await supabaseAdmin
+      .from('access_codes')
+      .update(updates)
+      .eq('id', id)
+      .select();
+    
+    if(error) return res.status(500).json({ error });
+    return res.json({ data });
+  }catch(err){ console.error(err); return res.status(500).json({ error: String(err) }); }
+});
+
+// Delete access code
+app.delete('/admin/access-codes/:id', verifySecret, async (req,res)=>{
+  try{
+    const id = req.params.id;
+    if(!id) return res.status(400).json({ error: 'id required' });
+    
+    const { error } = await supabaseAdmin
+      .from('access_codes')
+      .delete()
+      .eq('id', id);
+    
+    if(error) return res.status(500).json({ error });
+    return res.json({ success: true });
   }catch(err){ console.error(err); return res.status(500).json({ error: String(err) }); }
 });
 
