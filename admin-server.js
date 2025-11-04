@@ -102,14 +102,15 @@ async function verifyAdminAuth(req, res, next) {
     
     console.log('Usuario autenticado:', user.email, 'ID:', user.id);
     
-    // Verificar que el usuario sea admin consultando la tabla admins directamente
-    const { data: adminData, error: adminError } = await supabaseAdmin
-      .from('admins')
-      .select('user_id')
+    // Verificar que el usuario sea admin consultando la tabla user_roles directamente
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
       .eq('user_id', user.id)
+      .eq('role', 'admin')
       .single();
     
-    if (adminError || !adminData) {
+    if (roleError || !roleData) {
       console.log('Usuario no es admin:', user.email);
       return res.status(403).json({ error: 'Acceso denegado. Se requieren permisos de administrador.' });
     }
