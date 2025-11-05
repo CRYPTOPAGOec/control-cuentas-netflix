@@ -21,6 +21,16 @@
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
     .icon-metric { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
     .table-row:hover { background: rgba(255,255,255,0.03); }
+    
+    /* Estilos para modal de notificaciones */
+    #notification-modal .overflow-y-auto::-webkit-scrollbar { width: 8px; }
+    #notification-modal .overflow-y-auto::-webkit-scrollbar-track { background: transparent; border-radius: 10px; }
+    #notification-modal .overflow-y-auto::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; transition: background 0.3s ease; }
+    #notification-modal .overflow-y-auto::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+    #notification-modal.show { animation: fadeIn 0.2s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    .notification-option { cursor: pointer; }
+    .notification-option.selected { border-color: #06b6d4 !important; background: rgba(6, 182, 212, 0.1) !important; }
   </style>
 </head>
 <body class="min-h-screen p-4 md:p-6">
@@ -226,6 +236,87 @@
       </div>
       <div id="upcoming-empty" class="text-center py-8 text-sm muted hidden">
         ✅ No hay cuentas próximas a vencer
+      </div>
+    </div>
+
+    <!-- Modal de Notificaciones WhatsApp -->
+    <div id="notification-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50 p-4">
+      <div class="glass rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between p-6 pb-4 border-b border-white/10 flex-shrink-0">
+          <h2 class="text-xl font-semibold">📱 Enviar Notificación WhatsApp</h2>
+          <button onclick="closeNotificationModal()" class="text-white/60 hover:text-white text-2xl">&times;</button>
+        </div>
+        
+        <div class="overflow-y-auto flex-1 p-6 pt-4" style="scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.3) transparent;">
+        
+        <div class="mb-4 p-4 bg-black/20 rounded-lg">
+          <div class="text-xs text-white/60 mb-1">Cliente</div>
+          <div id="notify-propietario" class="font-semibold text-lg">-</div>
+          <div class="text-xs text-white/60 mt-2">Teléfono</div>
+          <div id="notify-telefono" class="font-mono text-sm">-</div>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm muted mb-2">Selecciona el tipo de notificación:</label>
+          <div class="space-y-2">
+            <button onclick="selectNotificationType('pago_3dias')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-cyan-500/50">
+              <div class="font-semibold text-cyan-300 text-sm">⏰ Recordatorio - 3 días para pago</div>
+            </button>
+            
+            <button onclick="selectNotificationType('pago_2dias')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-cyan-500/50">
+              <div class="font-semibold text-amber-300 text-sm">⚠️ Recordatorio - 2 días para pago</div>
+            </button>
+            
+            <button onclick="selectNotificationType('pago_1dia')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-cyan-500/50">
+              <div class="font-semibold text-orange-300 text-sm">🚨 Recordatorio - 1 día para pago</div>
+            </button>
+            
+            <button onclick="selectNotificationType('pago_hoy')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-rose-500/50">
+              <div class="font-semibold text-rose-300 text-sm">🔴 Pago vence HOY</div>
+            </button>
+            
+            <button onclick="selectNotificationType('pago_atrasado')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-rose-500/50">
+              <div class="font-semibold text-rose-400 text-sm">💸 Pago atrasado</div>
+            </button>
+            
+            <button onclick="selectNotificationType('confirmacion_pago')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-emerald-500/50">
+              <div class="font-semibold text-emerald-300 text-sm">✅ Confirmación de pago</div>
+            </button>
+            
+            <button onclick="selectNotificationType('renovacion_proxima')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-violet-500/50">
+              <div class="font-semibold text-violet-300 text-sm">🔄 Renovación próxima</div>
+            </button>
+            
+            <button onclick="selectNotificationType('personalizado')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-white/20">
+              <div class="font-semibold text-white/90 text-sm">✏️ Mensaje personalizado</div>
+            </button>
+          </div>
+        </div>
+
+        <div id="message-preview-container" class="mb-4 hidden">
+          <label class="block text-sm muted mb-2">Vista previa del mensaje:</label>
+          <div class="p-4 bg-emerald-900/20 border border-emerald-500/30 rounded-lg">
+            <pre id="message-preview" class="text-sm whitespace-pre-wrap">-</pre>
+          </div>
+          <div id="custom-message-container" class="mt-3 hidden">
+            <textarea id="custom-message-input" rows="5" class="w-full p-3 rounded-lg input-futur" placeholder="Escribe tu mensaje personalizado..."></textarea>
+          </div>
+        </div>
+
+        <div id="notification-warning" class="mb-4 p-3 bg-amber-900/20 border border-amber-500/30 rounded-lg text-sm text-amber-200 hidden">
+          <strong>⚠️ Advertencia:</strong> <span id="warning-text"></span>
+        </div>
+
+        </div>
+
+        <div class="flex gap-3 p-6 pt-4 border-t border-white/10 flex-shrink-0">
+          <button onclick="closeNotificationModal()" class="flex-1 px-4 py-3 border border-white/10 rounded-lg hover:bg-white/5 transition">
+            Cancelar
+          </button>
+          <button id="send-whatsapp-btn" onclick="sendWhatsAppMessage()" class="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+            📱 Abrir WhatsApp
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1078,9 +1169,14 @@
             ${days < 0 ? `Hace ${Math.abs(days)} día${Math.abs(days)>1?'s':''}` : `${days} día${days>1?'s':''}`}
           </td>
           <td class="py-3 px-2 text-center">
-            <a href="accounts.html" class="px-3 py-1 text-xs bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg transition-all">
-              Ver cuenta
-            </a>
+            <div class="flex gap-2 justify-center">
+              ${a.telefono ? `<button onclick="openNotificationModal('${a.id}')" class="px-3 py-1 text-xs bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg transition-all" title="Enviar notificación WhatsApp">
+                📱
+              </button>` : ''}
+              <a href="accounts.html" class="px-3 py-1 text-xs bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg transition-all">
+                Ver
+              </a>
+            </div>
           </td>
         `;
         tbody.appendChild(tr);
@@ -1187,6 +1283,291 @@
         msgEl.classList.remove('hidden'); 
       } 
     });
+
+    // ==================== SISTEMA DE NOTIFICACIONES ====================
+    let currentNotificationAccount = null;
+    let selectedNotificationType = null;
+
+    // Plantillas de mensajes por defecto
+    const defaultTemplates = {
+      pago_3dias: `Hola {propietario},
+
+Te recordamos que tu pago de {servicio} vence en *3 días* ({fechaPago}).
+
+💵 Monto: {precio}
+
+Por favor realiza tu pago a tiempo para evitar interrupciones en el servicio.
+
+¡Gracias por tu preferencia! 😊`,
+
+      pago_2dias: `Hola {propietario},
+
+⚠️ Tu pago de {servicio} vence en *2 días* ({fechaPago}).
+
+💵 Monto: {precio}
+
+Te pedimos realizar el pago pronto para mantener tu servicio activo.
+
+¡Gracias! 🙏`,
+
+      pago_1dia: `Hola {propietario},
+
+🚨 *IMPORTANTE:* Tu pago de {servicio} vence *MAÑANA* ({fechaPago}).
+
+💵 Monto: {precio}
+
+Por favor realiza tu pago cuanto antes para evitar la suspensión del servicio.
+
+Gracias por tu atención.`,
+
+      pago_hoy: `Hola {propietario},
+
+🔴 *URGENTE:* Tu pago de {servicio} vence *HOY* ({fechaPago}).
+
+💵 Monto: {precio}
+
+Es necesario que realices el pago hoy mismo para mantener tu servicio activo.
+
+¡Gracias!`,
+
+      pago_atrasado: `Hola {propietario},
+
+Notamos que tu pago de {servicio} está *atrasado* desde {fechaPago}.
+
+💵 Monto: {precio}
+
+Para reactivar tu servicio, te pedimos regularizar tu pago lo antes posible.
+
+Quedamos atentos. Gracias.`,
+
+      confirmacion_pago: `Hola {propietario},
+
+✅ *¡Pago confirmado!*
+
+Hemos recibido tu pago de *{precio}* por el servicio de {servicio}.
+
+📅 Próximo pago: {fechaPago}
+📅 Servicio válido hasta: {fechaCaducidad}
+
+¡Gracias por tu pago puntual! 🎉`,
+
+      renovacion_proxima: `Hola {propietario},
+
+Te informamos que tu cuenta de {servicio} está próxima a vencer el *{fechaCaducidad}*.
+
+Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
+
+💵 Precio de renovación: {precio}
+
+¡Gracias por confiar en nosotros! 😊`,
+
+      personalizado: ''
+    };
+
+    function formatDate(date){ 
+      if(!date) return ''; 
+      const d = new Date(date+'T00:00:00'); 
+      if(isNaN(d.getTime())) return ''; 
+      const y=d.getFullYear(); 
+      const m=String(d.getMonth()+1).padStart(2,'0'); 
+      const day=String(d.getDate()).padStart(2,'0'); 
+      return `${day}/${m}/${y}`; 
+    }
+
+    function processTemplate(template, account) {
+      return template
+        .replace(/{propietario}/g, account.propietario || 'Cliente')
+        .replace(/{servicio}/g, account.servicio || 'Netflix')
+        .replace(/{precio}/g, `$${(parseFloat(account.precio) || 0).toFixed(2)}`)
+        .replace(/{fechaPago}/g, formatDate(account.fechaPago))
+        .replace(/{fechaCaducidad}/g, formatDate(account.fechaCaducidad))
+        .replace(/{correo}/g, account.correo || 'N/A')
+        .replace(/{telefono}/g, account.telefono || 'N/A');
+    }
+
+    function calculateDaysToPayment(paymentDateString){ 
+      if(!paymentDateString) return {display:'No definido', days:null}; 
+      const p=new Date(paymentDateString+'T00:00:00'); 
+      const t=new Date(); 
+      p.setHours(0,0,0,0); 
+      t.setHours(0,0,0,0); 
+      const diff=Math.ceil((p.getTime()-t.getTime())/(1000*60*60*24)); 
+      return {days: diff}; 
+    }
+
+    async function openNotificationModal(accountId) {
+      try {
+        const account = allAccounts.find(a => a.id === accountId);
+        if (!account) {
+          alert('Cuenta no encontrada.');
+          return;
+        }
+
+        if (!account.telefono || account.telefono.trim() === '') {
+          alert('Esta cuenta no tiene número de teléfono registrado.');
+          return;
+        }
+
+        currentNotificationAccount = account;
+        selectedNotificationType = null;
+
+        document.getElementById('notify-propietario').textContent = account.propietario || 'Sin nombre';
+        document.getElementById('notify-telefono').textContent = account.telefono;
+
+        document.getElementById('message-preview-container').classList.add('hidden');
+        document.getElementById('notification-warning').classList.add('hidden');
+        document.getElementById('send-whatsapp-btn').disabled = true;
+        document.getElementById('custom-message-container').classList.add('hidden');
+
+        // Remover clase selected de todas las opciones
+        document.querySelectorAll('.notification-option').forEach(btn => {
+          btn.classList.remove('selected');
+        });
+
+        document.getElementById('notification-modal').classList.remove('hidden');
+      } catch (err) {
+        alert(err.message || String(err));
+      }
+    }
+
+    function closeNotificationModal() {
+      document.getElementById('notification-modal').classList.add('hidden');
+      currentNotificationAccount = null;
+      selectedNotificationType = null;
+    }
+
+    function selectNotificationType(type) {
+      if (!currentNotificationAccount) return;
+
+      selectedNotificationType = type;
+      const account = currentNotificationAccount;
+      
+      // Remover clase selected de todas las opciones
+      document.querySelectorAll('.notification-option').forEach(btn => {
+        btn.classList.remove('selected');
+      });
+      
+      // Agregar clase selected a la opción clickeada
+      event.target.closest('.notification-option').classList.add('selected');
+      
+      let message = '';
+      let warning = '';
+      let shouldWarn = false;
+
+      const paymentInfo = calculateDaysToPayment(account.fechaPago);
+      const expiryInfo = calculateDaysRemaining(account.fechaCaducidad);
+
+      switch(type) {
+        case 'pago_3dias':
+          if (paymentInfo.days === null || paymentInfo.days > 3 || paymentInfo.days < 2) {
+            warning = 'El pago no vence en 3 días. Verifica la fecha de pago antes de enviar.';
+            shouldWarn = true;
+          }
+          message = processTemplate(defaultTemplates.pago_3dias, account);
+          break;
+
+        case 'pago_2dias':
+          if (paymentInfo.days === null || paymentInfo.days > 2 || paymentInfo.days < 1) {
+            warning = 'El pago no vence en 2 días. Verifica la fecha de pago antes de enviar.';
+            shouldWarn = true;
+          }
+          message = processTemplate(defaultTemplates.pago_2dias, account);
+          break;
+
+        case 'pago_1dia':
+          if (paymentInfo.days === null || paymentInfo.days !== 1) {
+            warning = 'El pago no vence mañana. Verifica la fecha de pago antes de enviar.';
+            shouldWarn = true;
+          }
+          message = processTemplate(defaultTemplates.pago_1dia, account);
+          break;
+
+        case 'pago_hoy':
+          if (paymentInfo.days === null || paymentInfo.days !== 0) {
+            warning = 'El pago no vence hoy. Verifica la fecha de pago antes de enviar.';
+            shouldWarn = true;
+          }
+          message = processTemplate(defaultTemplates.pago_hoy, account);
+          break;
+
+        case 'pago_atrasado':
+          if (paymentInfo.days === null || paymentInfo.days >= 0) {
+            warning = 'El pago no está atrasado. Este mensaje no es apropiado.';
+            shouldWarn = true;
+          }
+          message = processTemplate(defaultTemplates.pago_atrasado, account);
+          break;
+
+        case 'renovacion_proxima':
+          if (expiryInfo.days === null || expiryInfo.days > 7 || expiryInfo.days < 0) {
+            warning = 'La cuenta no está próxima a vencer. Verifica la fecha de caducidad.';
+            shouldWarn = true;
+          }
+          message = processTemplate(defaultTemplates.renovacion_proxima, account);
+          break;
+
+        case 'confirmacion_pago':
+          message = processTemplate(defaultTemplates.confirmacion_pago, account);
+          break;
+
+        case 'personalizado':
+          message = '';
+          document.getElementById('custom-message-container').classList.remove('hidden');
+          document.getElementById('custom-message-input').value = '';
+          document.getElementById('custom-message-input').focus();
+          document.getElementById('custom-message-input').addEventListener('input', (e) => {
+            document.getElementById('message-preview').textContent = e.target.value || '(vacío)';
+            document.getElementById('send-whatsapp-btn').disabled = !e.target.value.trim();
+          });
+          break;
+      }
+
+      document.getElementById('message-preview').textContent = message || '(vacío)';
+      document.getElementById('message-preview-container').classList.remove('hidden');
+
+      if (shouldWarn) {
+        document.getElementById('warning-text').textContent = warning;
+        document.getElementById('notification-warning').classList.remove('hidden');
+      } else {
+        document.getElementById('notification-warning').classList.add('hidden');
+      }
+
+      if (type === 'personalizado') {
+        document.getElementById('send-whatsapp-btn').disabled = true;
+      } else {
+        document.getElementById('send-whatsapp-btn').disabled = false;
+      }
+    }
+
+    function sendWhatsAppMessage() {
+      if (!currentNotificationAccount || !selectedNotificationType) return;
+
+      let message = '';
+      if (selectedNotificationType === 'personalizado') {
+        message = document.getElementById('custom-message-input').value.trim();
+      } else {
+        message = document.getElementById('message-preview').textContent;
+      }
+
+      if (!message) {
+        alert('El mensaje está vacío.');
+        return;
+      }
+
+      const phone = currentNotificationAccount.telefono.replace(/\D/g, '');
+      const encodedMessage = encodeURIComponent(message);
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
+
+      window.open(whatsappUrl, '_blank');
+      closeNotificationModal();
+    }
+
+    // Cerrar modal al hacer clic fuera
+    document.getElementById('notification-modal')?.addEventListener('click', function(e) {
+      if (e.target === this) closeNotificationModal();
+    });
+
+    // ==================== FIN SISTEMA DE NOTIFICACIONES ====================
 
     // Inicializar
     (async ()=>{ 
