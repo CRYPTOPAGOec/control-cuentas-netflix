@@ -25,6 +25,13 @@ CREATE INDEX IF NOT EXISTS idx_access_codes_active ON access_codes(is_active) WH
 -- Habilitar RLS
 ALTER TABLE access_codes ENABLE ROW LEVEL SECURITY;
 
+-- Eliminar políticas existentes si existen
+DROP POLICY IF EXISTS "Users can view their own access codes" ON access_codes;
+DROP POLICY IF EXISTS "Admins can view all access codes" ON access_codes;
+DROP POLICY IF EXISTS "Admins can create access codes" ON access_codes;
+DROP POLICY IF EXISTS "Admins can update access codes" ON access_codes;
+DROP POLICY IF EXISTS "Admins can delete access codes" ON access_codes;
+
 -- Política: Los usuarios pueden ver solo sus propios códigos
 CREATE POLICY "Users can view their own access codes"
   ON access_codes

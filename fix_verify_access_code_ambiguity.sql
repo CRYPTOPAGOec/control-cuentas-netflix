@@ -2,7 +2,9 @@
 -- Fecha: 5 de noviembre de 2025
 -- Problema: Error "column reference 'expires_at' is ambiguous" al iniciar sesión con código
 
--- Eliminar la función existente
+-- Nota: Este script es idempotente y se puede ejecutar múltiples veces
+
+-- Eliminar la función existente si existe
 DROP FUNCTION IF EXISTS verify_access_code(TEXT, TEXT);
 
 -- Recrear la función sin ambigüedad
@@ -35,10 +37,16 @@ END;
 $$;
 
 -- Verificar que la función se creó correctamente
-SELECT 
-  routine_name,
-  routine_type,
-  data_type
-FROM information_schema.routines
-WHERE routine_name = 'verify_access_code'
-  AND routine_schema = 'public';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 
+    FROM information_schema.routines
+    WHERE routine_name = 'verify_access_code'
+      AND routine_schema = 'public'
+  ) THEN
+    RAISE NOTICE '✅ Función verify_access_code creada/actualizada correctamente';
+  ELSE
+    RAISE EXCEPTION '❌ Error: La función verify_access_code no se creó';
+  END IF;
+END $$;
