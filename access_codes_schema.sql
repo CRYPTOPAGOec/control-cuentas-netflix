@@ -120,7 +120,7 @@ BEGIN
   SELECT 
     (ac.is_active AND ac.expires_at > now()) as is_valid,
     ac.user_id,
-    ac.expires_at
+    ac.expires_at as expires_at
   FROM access_codes ac
   INNER JOIN auth.users u ON u.id = ac.user_id
   WHERE u.email = p_email
@@ -129,11 +129,11 @@ BEGIN
   LIMIT 1;
   
   -- Actualizar last_used_at si el código es válido
-  UPDATE access_codes
+  UPDATE access_codes ac
   SET last_used_at = now()
-  WHERE code = p_code
-    AND is_active = true
-    AND expires_at > now();
+  WHERE ac.code = p_code
+    AND ac.is_active = true
+    AND ac.expires_at > now();
 END;
 $$;
 

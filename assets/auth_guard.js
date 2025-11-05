@@ -22,6 +22,31 @@
 
   async function getSessionUser(){
     try{
+      // Primero verificar si hay una sesión con código de acceso
+      const accessCodeSession = localStorage.getItem('access_code_session');
+      if(accessCodeSession){
+        try{
+          const sessionData = JSON.parse(accessCodeSession);
+          // Verificar que el código no haya expirado
+          if(sessionData.expires_at && new Date(sessionData.expires_at) > new Date()){
+            // Retornar un objeto user-like para compatibilidad
+            return {
+              id: sessionData.user_id,
+              email: sessionData.email,
+              isAccessCodeUser: true,
+              expires_at: sessionData.expires_at
+            };
+          } else {
+            // Código expirado, limpiar localStorage
+            localStorage.removeItem('access_code_session');
+          }
+        }catch(e){ 
+          console.warn('Error parsing access_code_session', e);
+          localStorage.removeItem('access_code_session');
+        }
+      }
+
+      // Si no hay sesión con código, verificar sesión Supabase (admin)
       const client = await ensureClient();
       if(!client) return null;
       // v2: auth.getSession()

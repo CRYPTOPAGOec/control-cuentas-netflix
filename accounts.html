@@ -638,7 +638,43 @@
       if (!supabaseClient) return;
 
       try {
-        // SIEMPRE validar sesión contra Supabase
+        // Primero verificar si hay sesión con código de acceso
+        const accessCodeSession = localStorage.getItem('access_code_session');
+        if(accessCodeSession){
+          try{
+            const sessionData = JSON.parse(accessCodeSession);
+            // Verificar que el código no haya expirado
+            if(sessionData.expires_at && new Date(sessionData.expires_at) > new Date()){
+              // Usuario con código de acceso válido
+              currentUserId = sessionData.user_id;
+              
+              // Mostrar email del usuario
+              const el = document.getElementById('header-user');
+              el.textContent = sessionData.email || sessionData.user_id;
+              
+              // Los usuarios con código NO son admin
+              // Configurar logout
+              document.getElementById('btn-logout').addEventListener('click', async ()=>{
+                localStorage.removeItem('access_code_session');
+                window.location.href = 'login.html';
+              });
+              
+              console.log('✅ Sesión con código de acceso válida');
+              return; // Sesión válida, continuar
+            } else {
+              // Código expirado
+              console.warn('Código de acceso expirado');
+              localStorage.removeItem('access_code_session');
+              window.location.href = 'login.html';
+              return;
+            }
+          }catch(e){ 
+            console.error('Error parsing access_code_session', e);
+            localStorage.removeItem('access_code_session');
+          }
+        }
+
+        // Si no hay sesión con código, validar sesión Supabase (admin)
         const { data: { session }, error } = await supabaseClient.auth.getSession();
 
         if (error) {
@@ -666,21 +702,21 @@
           if(isAdmin){ const btn = document.getElementById('admin-functions-btn'); if(btn) btn.classList.remove('hidden'); }
         }catch(e){ /* ignore silently */ }
 
+        // Configurar logout para admin
+        document.getElementById('btn-logout').addEventListener('click', async ()=>{
+          try {
+            await supabaseClient.auth.signOut();
+          } catch (e) {
+            console.warn('Error during signOut', e);
+          }
+          window.location.href = 'login.html';
+        });
+
       } catch (err) {
         console.error('Error validando sesión:', err);
         window.location.href = 'login.html';
         return;
       }
-
-      // Configurar logout
-      document.getElementById('btn-logout').addEventListener('click', async ()=>{
-        try {
-          await supabaseClient.auth.signOut();
-        } catch (e) {
-          console.warn('Error during signOut', e);
-        }
-        window.location.href = 'login.html';
-      });
     }
 
     // Storage helpers: solo Supabase
