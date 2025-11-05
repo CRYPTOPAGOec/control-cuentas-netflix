@@ -274,6 +274,49 @@
 
     async function init(){
       try{ if(window.__auth){ const ok = await window.__auth.requireAuth(); if(!ok) return; } }catch(e){}
+      
+      // Primero verificar si hay sesión con código de acceso
+      const accessCodeSession = localStorage.getItem('access_code_session');
+      if(accessCodeSession){
+        try{
+          const sessionData = JSON.parse(accessCodeSession);
+          // Verificar que el código no haya expirado
+          if(sessionData.expires_at && new Date(sessionData.expires_at) > new Date()){
+            // Usuario con código de acceso válido
+            currentUserId = sessionData.user_id;
+            localStorage.setItem('current_user_id', currentUserId);
+            
+            const headerEl = document.getElementById('header-user');
+            if(headerEl) headerEl.textContent = sessionData.email || sessionData.user_id;
+            
+            // Configurar logout para código de acceso
+            document.getElementById('logout').addEventListener('click', async ()=>{ 
+              localStorage.removeItem('access_code_session');
+              localStorage.removeItem('current_user_id');
+              window.location.href='login.html'; 
+            });
+            
+            document.getElementById('btn-profile').addEventListener('click', ()=> openProfileModal());
+            document.getElementById('filter-7d').addEventListener('click', ()=> { upcomingFilterDays = 7; renderUpcomingAccounts(); updateFilterButtons(); });
+            document.getElementById('filter-30d').addEventListener('click', ()=> { upcomingFilterDays = 30; renderUpcomingAccounts(); updateFilterButtons(); });
+            
+            console.log('✅ Dashboard cargado con sesión de código de acceso');
+            return; // Sesión válida, continuar con el dashboard
+          } else {
+            // Código expirado
+            console.warn('Código de acceso expirado');
+            localStorage.removeItem('access_code_session');
+            localStorage.removeItem('current_user_id');
+            window.location.href = 'login.html';
+            return;
+          }
+        }catch(e){ 
+          console.error('Error parsing access_code_session', e);
+          localStorage.removeItem('access_code_session');
+        }
+      }
+      
+      // Si no hay sesión con código, verificar sesión Supabase (admin)
       if(useSupabase){ 
         const client = await ensureSupabase(); 
         if(!client){ 
