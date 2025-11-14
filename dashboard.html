@@ -31,6 +31,28 @@
     @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
     .notification-option { cursor: pointer; }
     .notification-option.selected { border-color: #06b6d4 !important; background: rgba(6, 182, 212, 0.1) !important; }
+    
+    /* Estilos para notificaciones agrupadas */
+    .grouped-badge { 
+      display: inline-flex; 
+      align-items: center; 
+      gap: 4px; 
+      padding: 2px 8px; 
+      background: rgba(139, 92, 246, 0.2); 
+      color: #a78bfa; 
+      border-radius: 12px; 
+      font-size: 10px; 
+      font-weight: 600; 
+      margin-left: 6px;
+    }
+    .account-list-item { 
+      padding: 8px 12px; 
+      background: rgba(0, 0, 0, 0.2); 
+      border-radius: 8px; 
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      margin-bottom: 8px;
+    }
+    .account-list-item:last-child { margin-bottom: 0; }
   </style>
 </head>
 <body class="min-h-screen p-4 md:p-6">
@@ -353,6 +375,60 @@
           </button>
           <button id="send-whatsapp-btn" onclick="sendWhatsAppMessage()" class="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
             📱 Abrir WhatsApp
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Selección de Notificación (Individual o Grupal) -->
+    <div id="notification-choice-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50 p-4">
+      <div class="glass rounded-2xl max-w-lg w-full p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold">📱 Opciones de Notificación</h2>
+          <button onclick="closeNotificationChoiceModal()" class="text-white/60 hover:text-white text-2xl">&times;</button>
+        </div>
+
+        <div class="mb-4 p-4 bg-black/20 rounded-lg">
+          <div class="text-xs text-white/60 mb-1">Cliente</div>
+          <div id="choice-propietario" class="font-semibold text-lg">-</div>
+          <div class="text-xs text-white/60 mt-2">Teléfono</div>
+          <div id="choice-telefono" class="font-mono text-sm">-</div>
+        </div>
+
+        <div id="grouped-accounts-info" class="mb-4 hidden">
+          <div class="text-sm muted mb-2">Cuentas encontradas que caducan el mismo día:</div>
+          <div id="grouped-accounts-list" class="space-y-2">
+            <!-- Se llenará dinámicamente -->
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <button id="btn-notify-single" onclick="proceedWithSingleNotification()" class="w-full text-left p-4 bg-gradient-to-r from-cyan-600/20 to-blue-600/20 hover:from-cyan-600/30 hover:to-blue-600/30 rounded-lg transition border border-cyan-500/30 hover:border-cyan-500/50">
+            <div class="flex items-center gap-3">
+              <div class="text-3xl">📄</div>
+              <div class="flex-1">
+                <div class="font-semibold text-cyan-300">Notificación Individual</div>
+                <div class="text-xs text-white/60 mt-1">Enviar mensaje solo para esta cuenta</div>
+              </div>
+            </div>
+          </button>
+
+          <button id="btn-notify-grouped" onclick="proceedWithGroupedNotification()" class="w-full text-left p-4 bg-gradient-to-r from-violet-600/20 to-purple-600/20 hover:from-violet-600/30 hover:to-purple-600/30 rounded-lg transition border border-violet-500/30 hover:border-violet-500/50 hidden">
+            <div class="flex items-center gap-3">
+              <div class="text-3xl">📦</div>
+              <div class="flex-1">
+                <div class="font-semibold text-violet-300">Notificación Agrupada</div>
+                <div class="text-xs text-white/60 mt-1">
+                  Enviar un solo mensaje con todas las cuentas (<span id="grouped-count">0</span> cuentas)
+                </div>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <div class="mt-4 flex justify-end">
+          <button onclick="closeNotificationChoiceModal()" class="px-4 py-2 border border-white/10 rounded-lg hover:bg-white/5 transition">
+            Cancelar
           </button>
         </div>
       </div>
@@ -1192,6 +1268,10 @@
           statusClass = 'status-alerta';
           statusText = '⚠️ Alerta';
         }
+
+        // Verificar si hay cuentas agrupadas para este usuario
+        const grouped = findGroupedAccounts(a.id);
+        const hasGrouped = grouped.length > 0;
         
         const tr = document.createElement('tr');
         tr.className = 'table-row border-b border-white/5';
@@ -1199,7 +1279,10 @@
           <td class="py-3 px-2">
             <span class="status-badge ${statusClass}">${statusText}</span>
           </td>
-          <td class="py-3 px-2 font-semibold">${a.propietario || 'Sin propietario'}</td>
+          <td class="py-3 px-2 font-semibold">
+            ${a.propietario || 'Sin propietario'}
+            ${hasGrouped ? `<span class="grouped-badge">📦 +${grouped.length}</span>` : ''}
+          </td>
           <td class="py-3 px-2 muted">${a.correo || 'N/A'}</td>
           <td class="py-3 px-2 text-green-400 font-bold">$${(parseFloat(a.precio)||0).toFixed(2)}</td>
           <td class="py-3 px-2">${a.fechaCaducidad || 'N/A'}</td>
@@ -1208,8 +1291,8 @@
           </td>
           <td class="py-3 px-2 text-center">
             <div class="flex gap-2 justify-center">
-              ${a.telefono ? `<button onclick="openNotificationModal('${a.id}')" class="px-3 py-1 text-xs bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg transition-all" title="Enviar notificación WhatsApp">
-                📱
+              ${a.telefono ? `<button onclick="openNotificationModal('${a.id}')" class="px-3 py-1 text-xs bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg transition-all" title="${hasGrouped ? 'Notificar - Hay ' + (grouped.length + 1) + ' cuentas agrupadas' : 'Enviar notificación WhatsApp'}">
+                📱${hasGrouped ? ' (' + (grouped.length + 1) + ')' : ''}
               </button>` : ''}
               <a href="accounts.html" class="px-3 py-1 text-xs bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg transition-all">
                 Ver
@@ -1325,6 +1408,9 @@
     // ==================== SISTEMA DE NOTIFICACIONES ====================
     let currentNotificationAccount = null;
     let selectedNotificationType = null;
+    let groupedAccountsForNotification = []; // Para almacenar cuentas agrupadas
+    let pendingAccountId = null; // ID de la cuenta que activó el modal de selección
+    let isGroupedNotification = false; // Flag para saber si es notificación agrupada
 
     // Plantillas de mensajes por defecto
     const defaultTemplates = {
@@ -1399,7 +1485,44 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
 
 ¡Gracias por confiar en nosotros! 😊`,
 
-      personalizado: ''
+      personalizado: '',
+
+      // Plantillas para notificaciones agrupadas
+      pago_agrupado: `Hola {propietario},
+
+Te recordamos que tienes *{cantidad_cuentas} cuentas* que vencen próximamente el *{fechaCaducidad}*.
+
+📋 *Detalle de tus cuentas:*{cuentas_lista}
+
+💰 *Total a pagar: ${total_precio}*
+
+Por favor realiza tu pago a tiempo para evitar interrupciones en tus servicios.
+
+¡Gracias por tu preferencia! 😊`,
+
+      renovacion_proxima_agrupada: `Hola {propietario},
+
+Te informamos que tienes *{cantidad_cuentas} cuentas* próximas a vencer el *{fechaCaducidad}*.
+
+📋 *Detalle de tus cuentas:*{cuentas_lista}
+
+💰 *Total para renovación: ${total_precio}*
+
+Si deseas renovar tus servicios, contáctanos para procesar la renovación.
+
+¡Gracias por confiar en nosotros! 😊`,
+
+      confirmacion_pago_agrupada: `Hola {propietario},
+
+✅ *¡Pago confirmado!*
+
+Hemos recibido tu pago por *{cantidad_cuentas} cuentas*.
+
+📋 *Cuentas actualizadas:*{cuentas_lista}
+
+💰 *Total pagado: ${total_precio}*
+
+¡Gracias por tu pago puntual! 🎉`
     };
 
     function formatDate(date){ 
@@ -1433,6 +1556,96 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
       return {days: diff}; 
     }
 
+    // Función para encontrar cuentas agrupadas (mismo usuario y fecha de caducidad)
+    function findGroupedAccounts(accountId) {
+      const account = allAccounts.find(a => a.id === accountId);
+      if (!account || !account.telefono) return [];
+
+      const accountDate = account.fechaCaducidad;
+      if (!accountDate) return [];
+
+      // Buscar todas las cuentas del mismo propietario con el mismo teléfono y misma fecha de caducidad
+      const grouped = allAccounts.filter(a => {
+        return a.id !== accountId && 
+               a.telefono === account.telefono &&
+               a.propietario === account.propietario &&
+               a.fechaCaducidad === accountDate;
+      });
+
+      return grouped;
+    }
+
+    // Abrir modal de selección de notificación (individual o grupal)
+    function openNotificationChoiceModal(accountId) {
+      const account = allAccounts.find(a => a.id === accountId);
+      if (!account) {
+        alert('Cuenta no encontrada.');
+        return;
+      }
+
+      pendingAccountId = accountId;
+      const grouped = findGroupedAccounts(accountId);
+      
+      document.getElementById('choice-propietario').textContent = account.propietario || 'Sin nombre';
+      document.getElementById('choice-telefono').textContent = account.telefono;
+
+      // Si hay cuentas agrupadas, mostrar información
+      if (grouped.length > 0) {
+        groupedAccountsForNotification = [account, ...grouped];
+        
+        const accountsList = document.getElementById('grouped-accounts-list');
+        accountsList.innerHTML = '';
+        
+        groupedAccountsForNotification.forEach(acc => {
+          const div = document.createElement('div');
+          div.className = 'account-list-item';
+          div.innerHTML = `
+            <div class="flex justify-between items-center">
+              <div class="flex-1">
+                <div class="text-sm font-semibold">${acc.servicio || 'Netflix'}</div>
+                <div class="text-xs text-white/60">${acc.correo || 'Sin correo'}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-bold text-green-400">$${(parseFloat(acc.precio) || 0).toFixed(2)}</div>
+                <div class="text-xs text-white/60">${acc.fechaCaducidad}</div>
+              </div>
+            </div>
+          `;
+          accountsList.appendChild(div);
+        });
+
+        document.getElementById('grouped-count').textContent = groupedAccountsForNotification.length;
+        document.getElementById('grouped-accounts-info').classList.remove('hidden');
+        document.getElementById('btn-notify-grouped').classList.remove('hidden');
+      } else {
+        groupedAccountsForNotification = [account];
+        document.getElementById('grouped-accounts-info').classList.add('hidden');
+        document.getElementById('btn-notify-grouped').classList.add('hidden');
+      }
+
+      document.getElementById('notification-choice-modal').classList.remove('hidden');
+    }
+
+    function closeNotificationChoiceModal() {
+      document.getElementById('notification-choice-modal').classList.add('hidden');
+      pendingAccountId = null;
+      groupedAccountsForNotification = [];
+    }
+
+    function proceedWithSingleNotification() {
+      closeNotificationChoiceModal();
+      if (pendingAccountId) {
+        openNotificationModalDirect(pendingAccountId, false);
+      }
+    }
+
+    function proceedWithGroupedNotification() {
+      closeNotificationChoiceModal();
+      if (pendingAccountId) {
+        openNotificationModalDirect(pendingAccountId, true);
+      }
+    }
+
     async function openNotificationModal(accountId) {
       try {
         const account = allAccounts.find(a => a.id === accountId);
@@ -1446,10 +1659,44 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
           return;
         }
 
+        // Verificar si hay cuentas agrupadas
+        const grouped = findGroupedAccounts(accountId);
+        
+        if (grouped.length > 0) {
+          // Si hay cuentas agrupadas, mostrar modal de selección
+          openNotificationChoiceModal(accountId);
+        } else {
+          // Si no hay agrupadas, ir directo al modal de notificación
+          openNotificationModalDirect(accountId, false);
+        }
+      } catch (err) {
+        alert(err.message || String(err));
+      }
+    }
+
+    async function openNotificationModalDirect(accountId, isGrouped) {
+      try {
+        const account = allAccounts.find(a => a.id === accountId);
+        if (!account) {
+          alert('Cuenta no encontrada.');
+          return;
+        }
+
         currentNotificationAccount = account;
         selectedNotificationType = null;
+        isGroupedNotification = isGrouped;
 
-        document.getElementById('notify-propietario').textContent = account.propietario || 'Sin nombre';
+        // Si es agrupado y no tenemos las cuentas, las buscamos
+        if (isGrouped && groupedAccountsForNotification.length === 0) {
+          const grouped = findGroupedAccounts(accountId);
+          groupedAccountsForNotification = [account, ...grouped];
+        }
+
+        const displayText = isGrouped 
+          ? `${account.propietario || 'Sin nombre'} (${groupedAccountsForNotification.length} cuentas)`
+          : account.propietario || 'Sin nombre';
+
+        document.getElementById('notify-propietario').textContent = displayText;
         document.getElementById('notify-telefono').textContent = account.telefono;
 
         document.getElementById('message-preview-container').classList.add('hidden');
@@ -1472,6 +1719,36 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
       document.getElementById('notification-modal').classList.add('hidden');
       currentNotificationAccount = null;
       selectedNotificationType = null;
+      isGroupedNotification = false;
+      groupedAccountsForNotification = [];
+    }
+
+    // Función para generar mensaje agrupado
+    function processGroupedTemplate(template, accounts) {
+      if (!accounts || accounts.length === 0) return '';
+      
+      const firstAccount = accounts[0];
+      let message = template
+        .replace(/{propietario}/g, firstAccount.propietario || 'Cliente')
+        .replace(/{telefono}/g, firstAccount.telefono || 'N/A');
+
+      // Generar lista de cuentas
+      let accountsList = '';
+      let totalPrice = 0;
+
+      accounts.forEach((acc, index) => {
+        const price = parseFloat(acc.precio) || 0;
+        totalPrice += price;
+        accountsList += `\n${index + 1}. *${acc.servicio || 'Netflix'}* (${acc.correo || 'Sin correo'})\n   💵 Precio: $${price.toFixed(2)}\n   📅 Vence: ${acc.fechaCaducidad || 'N/A'}`;
+      });
+
+      message = message
+        .replace(/{cuentas_lista}/g, accountsList)
+        .replace(/{total_precio}/g, totalPrice.toFixed(2))
+        .replace(/{cantidad_cuentas}/g, accounts.length.toString())
+        .replace(/{fechaCaducidad}/g, firstAccount.fechaCaducidad || 'N/A');
+
+      return message;
     }
 
     function selectNotificationType(type) {
@@ -1495,69 +1772,99 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
       const paymentInfo = calculateDaysToPayment(account.fechaPago);
       const expiryInfo = calculateDaysRemaining(account.fechaCaducidad);
 
-      switch(type) {
-        case 'pago_3dias':
-          if (paymentInfo.days === null || paymentInfo.days > 3 || paymentInfo.days < 2) {
-            warning = 'El pago no vence en 3 días. Verifica la fecha de pago antes de enviar.';
-            shouldWarn = true;
-          }
-          message = processTemplate(defaultTemplates.pago_3dias, account);
-          break;
+      // Si es notificación agrupada, usar plantillas especiales
+      if (isGroupedNotification && groupedAccountsForNotification.length > 0) {
+        switch(type) {
+          case 'renovacion_proxima':
+            message = processGroupedTemplate(defaultTemplates.renovacion_proxima_agrupada, groupedAccountsForNotification);
+            break;
+          case 'pago_3dias':
+          case 'pago_2dias':
+          case 'pago_1dia':
+          case 'pago_hoy':
+          case 'pago_atrasado':
+            message = processGroupedTemplate(defaultTemplates.pago_agrupado, groupedAccountsForNotification);
+            break;
+          case 'confirmacion_pago':
+            message = processGroupedTemplate(defaultTemplates.confirmacion_pago_agrupada, groupedAccountsForNotification);
+            break;
+          case 'personalizado':
+            message = '';
+            document.getElementById('custom-message-container').classList.remove('hidden');
+            document.getElementById('custom-message-input').value = '';
+            document.getElementById('custom-message-input').focus();
+            document.getElementById('custom-message-input').addEventListener('input', (e) => {
+              document.getElementById('message-preview').textContent = e.target.value || '(vacío)';
+              document.getElementById('send-whatsapp-btn').disabled = !e.target.value.trim();
+            });
+            break;
+        }
+      } else {
+        // Mensajes individuales (lógica existente)
+        switch(type) {
+          case 'pago_3dias':
+            if (paymentInfo.days === null || paymentInfo.days > 3 || paymentInfo.days < 2) {
+              warning = 'El pago no vence en 3 días. Verifica la fecha de pago antes de enviar.';
+              shouldWarn = true;
+            }
+            message = processTemplate(defaultTemplates.pago_3dias, account);
+            break;
 
-        case 'pago_2dias':
-          if (paymentInfo.days === null || paymentInfo.days > 2 || paymentInfo.days < 1) {
-            warning = 'El pago no vence en 2 días. Verifica la fecha de pago antes de enviar.';
-            shouldWarn = true;
-          }
-          message = processTemplate(defaultTemplates.pago_2dias, account);
-          break;
+          case 'pago_2dias':
+            if (paymentInfo.days === null || paymentInfo.days > 2 || paymentInfo.days < 1) {
+              warning = 'El pago no vence en 2 días. Verifica la fecha de pago antes de enviar.';
+              shouldWarn = true;
+            }
+            message = processTemplate(defaultTemplates.pago_2dias, account);
+            break;
 
-        case 'pago_1dia':
-          if (paymentInfo.days === null || paymentInfo.days !== 1) {
-            warning = 'El pago no vence mañana. Verifica la fecha de pago antes de enviar.';
-            shouldWarn = true;
-          }
-          message = processTemplate(defaultTemplates.pago_1dia, account);
-          break;
+          case 'pago_1dia':
+            if (paymentInfo.days === null || paymentInfo.days !== 1) {
+              warning = 'El pago no vence mañana. Verifica la fecha de pago antes de enviar.';
+              shouldWarn = true;
+            }
+            message = processTemplate(defaultTemplates.pago_1dia, account);
+            break;
 
-        case 'pago_hoy':
-          if (paymentInfo.days === null || paymentInfo.days !== 0) {
-            warning = 'El pago no vence hoy. Verifica la fecha de pago antes de enviar.';
-            shouldWarn = true;
-          }
-          message = processTemplate(defaultTemplates.pago_hoy, account);
-          break;
+          case 'pago_hoy':
+            if (paymentInfo.days === null || paymentInfo.days !== 0) {
+              warning = 'El pago no vence hoy. Verifica la fecha de pago antes de enviar.';
+              shouldWarn = true;
+            }
+            message = processTemplate(defaultTemplates.pago_hoy, account);
+            break;
 
-        case 'pago_atrasado':
-          if (paymentInfo.days === null || paymentInfo.days >= 0) {
-            warning = 'El pago no está atrasado. Este mensaje no es apropiado.';
-            shouldWarn = true;
-          }
-          message = processTemplate(defaultTemplates.pago_atrasado, account);
-          break;
+          case 'pago_atrasado':
+            if (paymentInfo.days === null || paymentInfo.days >= 0) {
+              warning = 'El pago no está atrasado. Este mensaje no es apropiado.';
+              shouldWarn = true;
+            }
+            message = processTemplate(defaultTemplates.pago_atrasado, account);
+            break;
 
-        case 'renovacion_proxima':
-          if (expiryInfo.days === null || expiryInfo.days > 7 || expiryInfo.days < 0) {
-            warning = 'La cuenta no está próxima a vencer. Verifica la fecha de caducidad.';
-            shouldWarn = true;
-          }
-          message = processTemplate(defaultTemplates.renovacion_proxima, account);
-          break;
+          case 'renovacion_proxima':
+            if (expiryInfo.days === null || expiryInfo.days > 7 || expiryInfo.days < 0) {
+              warning = 'La cuenta no está próxima a vencer. Verifica la fecha de caducidad.';
+              shouldWarn = true;
+            }
+            message = processTemplate(defaultTemplates.renovacion_proxima, account);
+            break;
 
-        case 'confirmacion_pago':
-          message = processTemplate(defaultTemplates.confirmacion_pago, account);
-          break;
+          case 'confirmacion_pago':
+            message = processTemplate(defaultTemplates.confirmacion_pago, account);
+            break;
 
-        case 'personalizado':
-          message = '';
-          document.getElementById('custom-message-container').classList.remove('hidden');
-          document.getElementById('custom-message-input').value = '';
-          document.getElementById('custom-message-input').focus();
-          document.getElementById('custom-message-input').addEventListener('input', (e) => {
-            document.getElementById('message-preview').textContent = e.target.value || '(vacío)';
-            document.getElementById('send-whatsapp-btn').disabled = !e.target.value.trim();
-          });
-          break;
+          case 'personalizado':
+            message = '';
+            document.getElementById('custom-message-container').classList.remove('hidden');
+            document.getElementById('custom-message-input').value = '';
+            document.getElementById('custom-message-input').focus();
+            document.getElementById('custom-message-input').addEventListener('input', (e) => {
+              document.getElementById('message-preview').textContent = e.target.value || '(vacío)';
+              document.getElementById('send-whatsapp-btn').disabled = !e.target.value.trim();
+            });
+            break;
+        }
       }
 
       document.getElementById('message-preview').textContent = message || '(vacío)';
