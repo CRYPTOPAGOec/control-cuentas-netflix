@@ -319,35 +319,35 @@
         <div class="mb-4">
           <label class="block text-sm muted mb-2">Selecciona el tipo de notificación:</label>
           <div class="space-y-2">
-            <button onclick="selectNotificationType('pago_3dias')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-cyan-500/50">
+            <button onclick="selectNotificationType('pago_3dias', this)" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-cyan-500/50">
               <div class="font-semibold text-cyan-300 text-sm">⏰ Recordatorio - 3 días para pago</div>
             </button>
             
-            <button onclick="selectNotificationType('pago_2dias')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-cyan-500/50">
+            <button onclick="selectNotificationType('pago_2dias', this)" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-cyan-500/50">
               <div class="font-semibold text-amber-300 text-sm">⚠️ Recordatorio - 2 días para pago</div>
             </button>
             
-            <button onclick="selectNotificationType('pago_1dia')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-cyan-500/50">
+            <button onclick="selectNotificationType('pago_1dia', this)" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-cyan-500/50">
               <div class="font-semibold text-orange-300 text-sm">🚨 Recordatorio - 1 día para pago</div>
             </button>
             
-            <button onclick="selectNotificationType('pago_hoy')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-rose-500/50">
+            <button onclick="selectNotificationType('pago_hoy', this)" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-rose-500/50">
               <div class="font-semibold text-rose-300 text-sm">🔴 Pago vence HOY</div>
             </button>
             
-            <button onclick="selectNotificationType('pago_atrasado')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-rose-500/50">
+            <button onclick="selectNotificationType('pago_atrasado', this)" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-rose-500/50">
               <div class="font-semibold text-rose-400 text-sm">💸 Pago atrasado</div>
             </button>
             
-            <button onclick="selectNotificationType('confirmacion_pago')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-emerald-500/50">
+            <button onclick="selectNotificationType('confirmacion_pago', this)" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-emerald-500/50">
               <div class="font-semibold text-emerald-300 text-sm">✅ Confirmación de pago</div>
             </button>
             
-            <button onclick="selectNotificationType('renovacion_proxima')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-violet-500/50">
+            <button onclick="selectNotificationType('renovacion_proxima', this)" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-violet-500/50">
               <div class="font-semibold text-violet-300 text-sm">🔄 Renovación próxima</div>
             </button>
             
-            <button onclick="selectNotificationType('personalizado')" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-white/20">
+            <button onclick="selectNotificationType('personalizado', this)" class="notification-option w-full text-left p-3 bg-black/20 hover:bg-black/30 rounded-lg transition border border-white/10 hover:border-white/20">
               <div class="font-semibold text-white/90 text-sm">✏️ Mensaje personalizado</div>
             </button>
           </div>
@@ -1490,39 +1490,39 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
       // Plantillas para notificaciones agrupadas
       pago_agrupado: `Hola {propietario},
 
-Te recordamos que tienes *{cantidad_cuentas} cuentas* que vencen próximamente el *{fechaCaducidad}*.
+    Te recordamos que tienes *{cantidad_cuentas} cuentas* que vencen próximamente el *{fechaCaducidad}*.
 
-📋 *Detalle de tus cuentas:*{cuentas_lista}
+    📋 *Detalle de tus cuentas:*{cuentas_lista}
 
-💰 *Total a pagar: ${total_precio}*
+    💰 *Total a pagar: {total_precio}*
 
-Por favor realiza tu pago a tiempo para evitar interrupciones en tus servicios.
+    Por favor realiza tu pago a tiempo para evitar interrupciones en tus servicios.
 
-¡Gracias por tu preferencia! 😊`,
+    ¡Gracias por tu preferencia! 😊`,
 
       renovacion_proxima_agrupada: `Hola {propietario},
 
-Te informamos que tienes *{cantidad_cuentas} cuentas* próximas a vencer el *{fechaCaducidad}*.
+    Te informamos que tienes *{cantidad_cuentas} cuentas* próximas a vencer el *{fechaCaducidad}*.
 
-📋 *Detalle de tus cuentas:*{cuentas_lista}
+    📋 *Detalle de tus cuentas:*{cuentas_lista}
 
-💰 *Total para renovación: ${total_precio}*
+    💰 *Total para renovación: {total_precio}*
 
-Si deseas renovar tus servicios, contáctanos para procesar la renovación.
+    Si deseas renovar tus servicios, contáctanos para procesar la renovación.
 
-¡Gracias por confiar en nosotros! 😊`,
+    ¡Gracias por confiar en nosotros! 😊`,
 
       confirmacion_pago_agrupada: `Hola {propietario},
 
-✅ *¡Pago confirmado!*
+    ✅ *¡Pago confirmado!*
 
-Hemos recibido tu pago por *{cantidad_cuentas} cuentas*.
+    Hemos recibido tu pago por *{cantidad_cuentas} cuentas*.
 
-📋 *Cuentas actualizadas:*{cuentas_lista}
+    📋 *Cuentas actualizadas:*{cuentas_lista}
 
-💰 *Total pagado: ${total_precio}*
+    💰 *Total pagado: {total_precio}*
 
-¡Gracias por tu pago puntual! 🎉`
+    ¡Gracias por tu pago puntual! 🎉`
     };
 
     function formatDate(date){ 
@@ -1558,7 +1558,7 @@ Hemos recibido tu pago por *{cantidad_cuentas} cuentas*.
 
     // Función para encontrar cuentas agrupadas (mismo usuario y fecha de caducidad)
     function findGroupedAccounts(accountId) {
-      const account = allAccounts.find(a => a.id === accountId);
+      const account = allAccounts.find(a => String(a.id) === String(accountId));
       if (!account || !account.telefono) return [];
 
       const accountDate = account.fechaCaducidad;
@@ -1566,7 +1566,7 @@ Hemos recibido tu pago por *{cantidad_cuentas} cuentas*.
 
       // Buscar todas las cuentas del mismo propietario con el mismo teléfono y misma fecha de caducidad
       const grouped = allAccounts.filter(a => {
-        return a.id !== accountId && 
+        return String(a.id) !== String(accountId) && 
                a.telefono === account.telefono &&
                a.propietario === account.propietario &&
                a.fechaCaducidad === accountDate;
@@ -1577,7 +1577,7 @@ Hemos recibido tu pago por *{cantidad_cuentas} cuentas*.
 
     // Abrir modal de selección de notificación (individual o grupal)
     function openNotificationChoiceModal(accountId) {
-      const account = allAccounts.find(a => a.id === accountId);
+      const account = allAccounts.find(a => String(a.id) === String(accountId));
       if (!account) {
         alert('Cuenta no encontrada.');
         return;
@@ -1648,7 +1648,7 @@ Hemos recibido tu pago por *{cantidad_cuentas} cuentas*.
 
     async function openNotificationModal(accountId) {
       try {
-        const account = allAccounts.find(a => a.id === accountId);
+        const account = allAccounts.find(a => String(a.id) === String(accountId));
         if (!account) {
           alert('Cuenta no encontrada.');
           return;
@@ -1676,7 +1676,7 @@ Hemos recibido tu pago por *{cantidad_cuentas} cuentas*.
 
     async function openNotificationModalDirect(accountId, isGrouped) {
       try {
-        const account = allAccounts.find(a => a.id === accountId);
+        const account = allAccounts.find(a => String(a.id) === String(accountId));
         if (!account) {
           alert('Cuenta no encontrada.');
           return;
@@ -1744,14 +1744,14 @@ Hemos recibido tu pago por *{cantidad_cuentas} cuentas*.
 
       message = message
         .replace(/{cuentas_lista}/g, accountsList)
-        .replace(/{total_precio}/g, totalPrice.toFixed(2))
+        .replace(/{total_precio}/g, `$${totalPrice.toFixed(2)}`)
         .replace(/{cantidad_cuentas}/g, accounts.length.toString())
         .replace(/{fechaCaducidad}/g, firstAccount.fechaCaducidad || 'N/A');
 
       return message;
     }
 
-    function selectNotificationType(type) {
+    function selectNotificationType(type, el) {
       if (!currentNotificationAccount) return;
 
       selectedNotificationType = type;
@@ -1762,8 +1762,8 @@ Hemos recibido tu pago por *{cantidad_cuentas} cuentas*.
         btn.classList.remove('selected');
       });
       
-      // Agregar clase selected a la opción clickeada
-      event.target.closest('.notification-option').classList.add('selected');
+      // Agregar clase selected a la opción clickeada (el viene de onclick="..., this")
+      try{ if(el && el.classList) el.classList.add('selected'); }catch(e){}
       
       let message = '';
       let warning = '';
