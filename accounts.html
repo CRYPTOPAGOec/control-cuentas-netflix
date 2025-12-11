@@ -282,6 +282,10 @@
             <input id="filter-propietario" class="w-full p-2 rounded input-futur">
           </div>
           <div>
+            <label class="block text-sm muted mb-1">Correo Electrónico</label>
+            <input id="filter-correo" class="w-full p-2 rounded input-futur" placeholder="Buscar por correo">
+          </div>
+          <div>
             <label class="block text-sm muted mb-1">Días para Renovación</label>
             <select id="filter-dias-renovacion" class="w-full p-2 rounded input-futur">
               <option value="">Todos</option>
@@ -323,14 +327,20 @@
             <input type="date" id="filter-fecha-caducidad" class="w-full p-2 rounded input-futur" placeholder="Selecciona fecha">
           </div>
           <div>
-            <label class="block text-sm muted mb-1">Ordenar por</label>
-            <select id="filter-ordenar" class="w-full p-2 rounded input-futur">
-              <option value="caducidad">Fecha de caducidad</option>
-              <option value="pago">Fecha de pago</option>
-              <option value="propietario">Propietario</option>
-              <option value="precio">Precio</option>
-              <option value="compra">Fecha de compra</option>
-            </select>
+            <label class="block text-sm muted mb-1">Organizar por</label>
+            <div class="flex gap-2">
+              <select id="filter-ordenar" class="w-full p-2 rounded input-futur">
+                <option value="caducidad">F. Caducidad (urgentes primero)</option>
+                <option value="dias_pago">Días p/ Pago (urgentes primero)</option>
+                <option value="pago_fecha">Fecha de pago</option>
+                <option value="propietario">Propietario</option>
+                <option value="precio">Precio</option>
+                <option value="compra">Fecha de compra</option>
+              </select>
+              <button type="button" id="sort-direction-btn" class="px-3 py-2 rounded glass border border-white/10 text-sm whitespace-nowrap">
+                ⬆️ Ascendente
+              </button>
+            </div>
           </div>
         </div>
         <div class="mt-4 text-center"><button id="toggle-filters" class="border border-white/8 py-2 px-4 rounded">⚙️ Mostrar Filtros Avanzados</button></div>
@@ -726,6 +736,7 @@
     let currentPage = 1;
     let itemsPerPage = 20;
     let allFilteredAccounts = [];
+    let sortDirection = 'asc';
     
     function generateId(){ return Date.now().toString() + Math.random().toString(36).slice(2,9); }
 
@@ -988,11 +999,70 @@
       });
     }
 
-    function getActiveFilters(){ return { propietario: document.getElementById('filter-propietario').value.toLowerCase().trim(), diasRenovacion: document.getElementById('filter-dias-renovacion').value, pago: document.getElementById('filter-pago').value, notas: document.getElementById('filter-notas').value.toLowerCase().trim(), fechaCompra: document.getElementById('filter-fecha-compra').value, fechaCaducidad: document.getElementById('filter-fecha-caducidad').value, ordenar: document.getElementById('filter-ordenar').value }; }
-    function sortAccounts(accounts, sortBy){ return accounts.sort((a,b)=>{ switch(sortBy){ case 'pago': return new Date(a.fechaPago||'9999-12-31') - new Date(b.fechaPago||'9999-12-31'); case 'propietario': return (a.propietario||'').localeCompare(b.propietario||''); case 'precio': return (a.precio||0)-(b.precio||0); case 'compra': return new Date(b.fechaCompra||'0000-01-01') - new Date(a.fechaCompra||'0000-01-01'); default: const daysA = calculateDaysRemaining(a.fechaCaducidad).days; const daysB = calculateDaysRemaining(b.fechaCaducidad).days; if(daysA<0 && daysB>=0) return -1; if(daysB<0 && daysA>=0) return 1; return (daysA||0)-(daysB||0); } }); }
-    function filterAccounts(accounts){ const filters=getActiveFilters(); return sortAccounts(accounts.filter(account=>{ if(filters.propietario && !account.propietario.toLowerCase().includes(filters.propietario)) return false; if(filters.diasRenovacion){ const days=calculateDaysRemaining(account.fechaCaducidad).days; switch(filters.diasRenovacion){ case 'vencidas': if(days>=0) return false; break; case 'hoy': if(days!==0) return false; break; case '1-3': if(days<1||days>3) return false; break; case '4-7': if(days<4||days>7) return false; break; case '8-15': if(days<8||days>15) return false; break; case '16-30': if(days<16||days>30) return false; break; case '30+': if(days<=30) return false; break; } } if(filters.pago){ const pdays = calculateDaysToPayment(account.fechaPago).days; switch(filters.pago){ case 'atrasado': if(pdays===null||pdays>=0) return false; break; case 'hoy': if(pdays!==0) return false; break; case 'proximo': if(pdays===null||pdays<1||pdays>3) return false; break; } } if(filters.notas && account.notas && !account.notas.toLowerCase().includes(filters.notas)) return false; if(filters.fechaCompra && account.fechaCompra){ if(account.fechaCompra.substring(0,7)!==filters.fechaCompra) return false; } if(filters.fechaCaducidad && account.fechaCaducidad){ if(account.fechaCaducidad !== filters.fechaCaducidad) return false; } return true; }), document.getElementById('filter-ordenar').value); }
-    function updateFilterSummary(total, filteredCount){ const el=document.getElementById('filter-summary'); const filters=getActiveFilters(); const hasActive = filters.propietario||filters.pago||filters.diasRenovacion||filters.notas||filters.fechaCaducidad; if(hasActive){ el.innerHTML = `📊 Mostrando ${filteredCount} de ${total} cuentas`; el.classList.remove('hidden'); } else el.classList.add('hidden'); }
-    function setupFilters(){ const filterInputs=[document.getElementById('filter-propietario'), document.getElementById('filter-dias-renovacion'), document.getElementById('filter-pago'), document.getElementById('filter-notas'), document.getElementById('filter-fecha-compra'), document.getElementById('filter-fecha-caducidad'), document.getElementById('filter-ordenar')]; function updateStyles(){ filterInputs.forEach(i=> i && (i.value.trim()? i.classList.add('filter-active') : i.classList.remove('filter-active'))); } filterInputs.forEach(i=>{ if(!i) return; i.addEventListener('input', ()=>{ updateStyles(); loadAndRenderAccounts(); }); i.addEventListener('change', ()=>{ updateStyles(); loadAndRenderAccounts(); }); }); document.getElementById('clear-filters').addEventListener('click', ()=>{ filterInputs.forEach(i=>{ if(i && i.id!=='filter-ordenar'){ i.value=''; i.classList.remove('filter-active'); } }); loadAndRenderAccounts(); }); const secondRow=document.getElementById('filters-second-row'); if(secondRow) secondRow.style.display='none'; document.getElementById('toggle-filters').addEventListener('click', ()=>{ const btn=document.getElementById('toggle-filters'); if(secondRow.style.display==='none'){ secondRow.style.display='grid'; btn.innerHTML='⬆️ Ocultar Filtros Avanzados'; } else { secondRow.style.display='none'; btn.innerHTML='⚙️ Mostrar Filtros Avanzados'; } }); }
+    function getActiveFilters(){ return { propietario: document.getElementById('filter-propietario').value.toLowerCase().trim(), correo: document.getElementById('filter-correo').value.toLowerCase().trim(), diasRenovacion: document.getElementById('filter-dias-renovacion').value, pago: document.getElementById('filter-pago').value, notas: document.getElementById('filter-notas').value.toLowerCase().trim(), fechaCompra: document.getElementById('filter-fecha-compra').value, fechaCaducidad: document.getElementById('filter-fecha-caducidad').value, ordenar: document.getElementById('filter-ordenar').value || 'caducidad' }; }
+
+    function normalizeNumber(value, fallback = Number.POSITIVE_INFINITY){
+      return (value === null || typeof value === 'undefined' || Number.isNaN(value)) ? fallback : value;
+    }
+
+    function sortAccounts(accounts, sortBy, direction = 'asc'){
+      const multiplier = direction === 'desc' ? -1 : 1;
+      return accounts.sort((a,b)=>{
+        let comparison = 0;
+        switch(sortBy){
+          case 'dias_pago': {
+            const daysA = normalizeNumber(calculateDaysToPayment(a.fechaPago).days);
+            const daysB = normalizeNumber(calculateDaysToPayment(b.fechaPago).days);
+            comparison = daysA - daysB;
+            break;
+          }
+          case 'pago':
+          case 'pago_fecha': {
+            const dateA = new Date(a.fechaPago || '9999-12-31');
+            const dateB = new Date(b.fechaPago || '9999-12-31');
+            comparison = dateA - dateB;
+            break;
+          }
+          case 'propietario':
+            comparison = (a.propietario || '').localeCompare(b.propietario || '');
+            break;
+          case 'precio':
+            comparison = (a.precio || 0) - (b.precio || 0);
+            break;
+          case 'compra': {
+            const dateA = new Date(a.fechaCompra || '0000-01-01');
+            const dateB = new Date(b.fechaCompra || '0000-01-01');
+            comparison = dateA - dateB;
+            break;
+          }
+          case 'caducidad':
+          default: {
+            const daysA = normalizeNumber(calculateDaysRemaining(a.fechaCaducidad).days);
+            const daysB = normalizeNumber(calculateDaysRemaining(b.fechaCaducidad).days);
+            comparison = daysA - daysB;
+            break;
+          }
+        }
+        if(comparison === 0 && sortBy !== 'propietario'){
+          comparison = (a.propietario || '').localeCompare(b.propietario || '');
+        }
+        return comparison * multiplier;
+      });
+    }
+
+    function filterAccounts(accounts){ const filters=getActiveFilters(); return sortAccounts(accounts.filter(account=>{ if(filters.propietario && !account.propietario.toLowerCase().includes(filters.propietario)) return false; if(filters.correo && account.correo && !account.correo.toLowerCase().includes(filters.correo)) return false; if(filters.diasRenovacion){ const days=calculateDaysRemaining(account.fechaCaducidad).days; switch(filters.diasRenovacion){ case 'vencidas': if(days>=0) return false; break; case 'hoy': if(days!==0) return false; break; case '1-3': if(days<1||days>3) return false; break; case '4-7': if(days<4||days>7) return false; break; case '8-15': if(days<8||days>15) return false; break; case '16-30': if(days<16||days>30) return false; break; case '30+': if(days<=30) return false; break; } } if(filters.pago){ const pdays = calculateDaysToPayment(account.fechaPago).days; switch(filters.pago){ case 'atrasado': if(pdays===null||pdays>=0) return false; break; case 'hoy': if(pdays!==0) return false; break; case 'proximo': if(pdays===null||pdays<1||pdays>3) return false; break; } } if(filters.notas && account.notas && !account.notas.toLowerCase().includes(filters.notas)) return false; if(filters.fechaCompra && account.fechaCompra){ if(account.fechaCompra.substring(0,7)!==filters.fechaCompra) return false; } if(filters.fechaCaducidad && account.fechaCaducidad){ if(account.fechaCaducidad !== filters.fechaCaducidad) return false; } return true; }), filters.ordenar, sortDirection); }
+    function updateFilterSummary(total, filteredCount){ const el=document.getElementById('filter-summary'); const filters=getActiveFilters(); const hasActive = filters.propietario||filters.correo||filters.pago||filters.diasRenovacion||filters.notas||filters.fechaCaducidad; if(hasActive){ el.innerHTML = `📊 Mostrando ${filteredCount} de ${total} cuentas`; el.classList.remove('hidden'); } else el.classList.add('hidden'); }
+
+    function updateSortDirectionButton(){
+      const btn = document.getElementById('sort-direction-btn');
+      if(!btn) return;
+      const isAsc = sortDirection === 'asc';
+      btn.textContent = isAsc ? '⬆️ Ascendente' : '⬇️ Descendente';
+      btn.title = isAsc ? 'Mostrar primero los valores más urgentes o pequeños' : 'Mostrar primero los valores más recientes o grandes';
+    }
+
+    function setupFilters(){ const filterInputs=[document.getElementById('filter-propietario'), document.getElementById('filter-correo'), document.getElementById('filter-dias-renovacion'), document.getElementById('filter-pago'), document.getElementById('filter-notas'), document.getElementById('filter-fecha-compra'), document.getElementById('filter-fecha-caducidad'), document.getElementById('filter-ordenar')]; function updateStyles(){ filterInputs.forEach(i=>{ if(!i) return; const value=(i.value||'').trim(); const isSortSelect = i.id==='filter-ordenar'; const isActive = isSortSelect ? value && value!=='caducidad' : Boolean(value); if(isActive) i.classList.add('filter-active'); else i.classList.remove('filter-active'); }); } filterInputs.forEach(i=>{ if(!i) return; i.addEventListener('input', ()=>{ updateStyles(); loadAndRenderAccounts(); }); i.addEventListener('change', ()=>{ updateStyles(); loadAndRenderAccounts(); }); }); const sortBtn=document.getElementById('sort-direction-btn'); if(sortBtn){ sortBtn.addEventListener('click', ()=>{ sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'; updateSortDirectionButton(); loadAndRenderAccounts(); }); updateSortDirectionButton(); }
+      document.getElementById('clear-filters').addEventListener('click', ()=>{ filterInputs.forEach(i=>{ if(i && i.id!=='filter-ordenar'){ i.value=''; i.classList.remove('filter-active'); } }); const ordenarSelect=document.getElementById('filter-ordenar'); if(ordenarSelect){ ordenarSelect.value='caducidad'; } sortDirection='asc'; updateSortDirectionButton(); updateStyles(); loadAndRenderAccounts(); }); const secondRow=document.getElementById('filters-second-row'); if(secondRow) secondRow.style.display='none'; document.getElementById('toggle-filters').addEventListener('click', ()=>{ const btn=document.getElementById('toggle-filters'); if(secondRow.style.display==='none'){ secondRow.style.display='grid'; btn.innerHTML='⬆️ Ocultar Filtros Avanzados'; } else { secondRow.style.display='none'; btn.innerHTML='⚙️ Mostrar Filtros Avanzados'; } }); updateStyles(); }
 
     // CRUD orchestration
     async function loadAndRenderAccounts(){
