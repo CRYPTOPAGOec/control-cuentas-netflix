@@ -173,6 +173,17 @@ app.get('/_health', (req,res)=> res.json({
   timestamp: new Date().toISOString()
 }));
 
+// Verify admin status (for UI to check if user is admin)
+app.get('/admin/verify', verifyAdminAuth, async (req,res)=> {
+  return res.json({ 
+    isAdmin: true,
+    user: {
+      id: req.user.id,
+      email: req.user.email
+    }
+  });
+});
+
 // List users (paginated)
 app.get('/admin/users', verifyAdminAuth, async (req,res)=>{
   try{

@@ -2624,22 +2624,35 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
     async function checkAdminAndShowAutomationPanel() {
       try {
         const jwt = localStorage.getItem('jwt');
-        const { data, error } = await supabase.auth.getUser(jwt);
+        if (!jwt) {
+          console.log('No JWT found, skipping admin check');
+          return;
+        }
+
+        // Verificar con el servidor backend si el usuario es admin
+        const response = await fetch(`${ADMIN_BASE_URL}/admin/verify`, {
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          console.log('Not an admin user');
+          return;
+        }
+
+        const result = await response.json();
         
-        if (error) throw error;
-        
-        const { data: userData } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', data.user.id)
-          .single();
-        
-        if (userData && userData.role === 'admin') {
+        if (result.isAdmin) {
+          console.log('✅ User is admin, showing automation panel');
           document.getElementById('automation-config-panel').classList.remove('hidden');
           await loadAutomationConfig();
           
           // Actualizar estadísticas cada minuto
           setInterval(loadTodayStats, 60000);
+        } else {
+          console.log('User is not admin');
         }
       } catch (err) {
         console.error('Error checking admin status:', err);
