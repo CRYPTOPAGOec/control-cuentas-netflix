@@ -43,6 +43,37 @@
         transform: scale(1);
       }
     }
+
+    @keyframes scale-in {
+      0% {
+        opacity: 0;
+        transform: scale(0.7);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes bounce-slow {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-10px);
+      }
+    }
+
+    .animate-scale-in {
+      animation: scale-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .animate-bounce-slow {
+      animation: bounce-slow 2s ease-in-out infinite;
+    }
     
     /* Estilos para paginación */
     #pagination-controls button:disabled {
@@ -100,7 +131,7 @@
           </div>
           <div class="col-span-2">
             <label for="telefono" class="block text-sm muted mb-1">Teléfono</label>
-            <input type="tel" id="telefono" value="+593" placeholder="+593 9XXXXXXXX" pattern="\+?[0-9\s-]{6,20}" class="w-full p-3 rounded-lg input-futur">
+            <input type="tel" id="telefono" value="+593" placeholder="+593 9XXXXXXXX" pattern="[+]?[0-9\s-]{6,20}" class="w-full p-3 rounded-lg input-futur">
           </div>
           <div class="col-span-2">
             <label for="servicio" class="block text-sm muted mb-1">Servicio</label>
@@ -213,7 +244,7 @@
             </div>
               <div class="col-span-2">
                 <label class="block text-sm muted mb-1">Teléfono</label>
-                <input type="tel" id="edit-telefono" class="w-full p-3 rounded-lg input-futur" placeholder="+593 9XXXXXXXX" pattern="\+?[0-9\s-]{6,20}">
+                <input type="tel" id="edit-telefono" class="w-full p-3 rounded-lg input-futur" placeholder="+593 9XXXXXXXX" pattern="[+]?[0-9\s-]{6,20}">
               </div>
             <div>
               <label class="block text-sm muted mb-1">Fecha de Compra</label>
@@ -489,7 +520,60 @@
               Cancelar
             </button>
             <button id="send-whatsapp-btn" onclick="sendWhatsAppMessage()" class="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-              📱 Abrir WhatsApp
+              ✅ Enviar Notificación
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de Éxito -->
+      <div id="success-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50 p-4">
+        <div class="glass rounded-2xl max-w-md w-full overflow-hidden animate-scale-in">
+          <div class="bg-gradient-to-br from-emerald-600 to-emerald-800 p-8 text-center">
+            <div class="w-20 h-20 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm animate-bounce-slow">
+              <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <h3 class="text-2xl font-bold text-white mb-2">¡Mensaje Enviado!</h3>
+            <p class="text-emerald-50/90 text-sm">La notificación fue enviada exitosamente</p>
+          </div>
+          
+          <div class="p-6 space-y-4">
+            <div class="bg-black/20 rounded-lg p-4 border border-white/10">
+              <div class="flex items-start gap-3">
+                <div class="text-2xl">👤</div>
+                <div class="flex-1">
+                  <div class="text-xs text-white/60 mb-1">Cliente</div>
+                  <div id="success-propietario" class="font-semibold">-</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="bg-black/20 rounded-lg p-4 border border-white/10">
+              <div class="flex items-start gap-3">
+                <div class="text-2xl">📱</div>
+                <div class="flex-1">
+                  <div class="text-xs text-white/60 mb-1">Teléfono</div>
+                  <div id="success-telefono" class="font-mono text-sm">-</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="bg-black/20 rounded-lg p-4 border border-white/10">
+              <div class="flex items-start gap-3">
+                <div class="text-2xl">💬</div>
+                <div class="flex-1">
+                  <div class="text-xs text-white/60 mb-1">Tipo de notificación</div>
+                  <div id="success-tipo" class="text-sm">-</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="p-6 pt-0">
+            <button onclick="closeSuccessModal()" class="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition">
+              Entendido
             </button>
           </div>
         </div>
@@ -1492,6 +1576,31 @@ Hemos recibido tu pago de *{precio}* por el servicio de {servicio}.
       selectedNotificationType = null;
     }
 
+    // Funciones para modal de éxito
+    function showSuccessModal(account, tipo) {
+      const tipoLabels = {
+        'pago_3dias': '⏰ Recordatorio - 3 días para pago',
+        'pago_2dias': '⚠️ Recordatorio - 2 días para pago',
+        'pago_1dia': '🚨 Recordatorio - 1 día para pago',
+        'pago_hoy': '🔴 Pago vence HOY',
+        'pago_atrasado': '💸 Pago atrasado',
+        'suspension': '🚫 Acceso suspendido',
+        'renovacion_proxima': '🔄 Renovación próxima',
+        'confirmacion_pago': '✅ Confirmación de pago',
+        'personalizado': '✏️ Mensaje personalizado'
+      };
+
+      document.getElementById('success-propietario').textContent = account.propietario;
+      document.getElementById('success-telefono').textContent = account.telefono;
+      document.getElementById('success-tipo').textContent = tipoLabels[tipo] || tipo;
+      
+      document.getElementById('success-modal').classList.remove('hidden');
+    }
+
+    function closeSuccessModal() {
+      document.getElementById('success-modal').classList.add('hidden');
+    }
+
     function selectNotificationType(type) {
       if (!currentNotificationAccount) return;
 
@@ -1601,7 +1710,8 @@ Hemos recibido tu pago de *{precio}* por el servicio de {servicio}.
       }
     }
 
-    function sendWhatsAppMessage() {
+    // Enviar notificación usando WAHA API (automático)
+    async function sendWhatsAppMessage() {
       if (!currentNotificationAccount || !selectedNotificationType) {
         showMessage('Por favor selecciona un tipo de notificación.', true);
         return;
@@ -1619,28 +1729,178 @@ Hemos recibido tu pago de *{precio}* por el servicio de {servicio}.
         message = getMessageForType(selectedNotificationType, currentNotificationAccount);
       }
 
-      // Limpiar y formatear el número de teléfono
-      let phone = currentNotificationAccount.telefono.trim();
-      // Remover espacios, guiones y caracteres especiales
-      phone = phone.replace(/[\s-()]/g, '');
-      
-      // Si no tiene el símbolo +, agregarlo
-      if (!phone.startsWith('+')) {
-        phone = '+' + phone;
+      // Verificar que ADMIN_BASE_URL esté definido
+      if (typeof ADMIN_BASE_URL === 'undefined') {
+        showMessage('❌ Error de configuración: ADMIN_BASE_URL no está definido. Verifica que env.js esté cargado correctamente.', true);
+        console.error('ADMIN_BASE_URL is undefined. Check env.js file.');
+        return;
       }
 
-      // Crear URL de WhatsApp
-      const encodedMessage = encodeURIComponent(message);
-      const whatsappUrl = `https://wa.me/${phone.replace('+', '')}?text=${encodedMessage}`;
+      // Deshabilitar botón para evitar doble envío
+      const sendBtn = document.getElementById('send-whatsapp-btn');
+      const originalText = sendBtn.innerHTML;
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '📤 Enviando...';
 
-      // Abrir WhatsApp en nueva ventana
-      window.open(whatsappUrl, '_blank');
+      try {
+        // Obtener token JWT de Supabase
+        const client = supabaseClient || window.__supabase;
+        if (!client) {
+          throw new Error('Cliente de Supabase no inicializado.');
+        }
+        
+        const { data: sessionData, error: sessionError } = await client.auth.getSession();
+        if (sessionError || !sessionData?.session) {
+          throw new Error('No se encontró sesión activa. Por favor inicia sesión nuevamente.');
+        }
+        
+        const jwt = sessionData.session.access_token;
+        
+        if (!jwt) {
+          throw new Error('No se pudo obtener el token de autenticación.');
+        }
 
-      // Cerrar modal
-      closeNotificationModal();
+        console.log('Enviando notificación WhatsApp a:', currentNotificationAccount.telefono);
+        
+        // Check rate limit first
+        try {
+          const rateLimitResponse = await fetch(`${ADMIN_BASE_URL}/admin/automation/rate-limit`, {
+            headers: {
+              'Authorization': `Bearer ${jwt}`,
+              'Content-Type': 'application/json'
+            }
+          });
 
-      // Mostrar confirmación
-      showMessage('¡WhatsApp abierto! Verifica el mensaje antes de enviar.');
+          if (rateLimitResponse.ok) {
+            const rateLimit = await rateLimitResponse.json();
+            if (!rateLimit.canSend) {
+              throw new Error(`Límite de envíos alcanzado: ${rateLimit.currentCount}/${rateLimit.limit} por hora. Espera unos minutos.`);
+            }
+          }
+        } catch (rateLimitErr) {
+          console.warn('No se pudo verificar rate limit, continuando con el envío:', rateLimitErr);
+        }
+
+        // Send using WAHA API
+        const response = await fetch(`${ADMIN_BASE_URL}/admin/whatsapp/send-custom`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            phone: currentNotificationAccount.telefono,
+            template: message
+          })
+        });
+
+        console.log('Respuesta del servidor:', response.status, response.statusText);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: `Error HTTP ${response.status}` }));
+          throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('Resultado del envío:', result);
+
+        if (result.success) {
+          // Track the notification
+          try {
+            await fetch(`${ADMIN_BASE_URL}/admin/automation/track`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${jwt}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                account_id: currentNotificationAccount.id,
+                notification_type: selectedNotificationType,
+                success: true,
+                phone: currentNotificationAccount.telefono,
+                message_id: result.messageId,
+                metadata: {
+                  source: 'accounts_page'
+                }
+              })
+            });
+          } catch (trackErr) {
+            console.warn('No se pudo registrar el envío:', trackErr);
+          }
+
+          // Guardar datos antes de cerrar el modal
+          const accountData = {
+            propietario: currentNotificationAccount.propietario,
+            telefono: currentNotificationAccount.telefono
+          };
+          const notifType = selectedNotificationType;
+
+          // Mostrar modal de éxito
+          closeNotificationModal();
+          setTimeout(() => {
+            showSuccessModal(accountData, notifType);
+          }, 300);
+        } else {
+          throw new Error(result.error || 'Error desconocido al enviar');
+        }
+
+      } catch (err) {
+        console.error('Error sending WhatsApp notification:', err);
+        
+        // Mostrar error específico
+        let errorMessage = err.message;
+        if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+          errorMessage = 'Error de conexión. Verifica que el servidor admin esté corriendo en ' + ADMIN_BASE_URL;
+        }
+        
+        showMessage(`❌ Error al enviar notificación: ${errorMessage}`, true);
+        
+        // Track failed notification
+        try {
+          const client = supabaseClient || window.__supabase;
+          const { data: sessionData } = client ? await client.auth.getSession() : { data: null };
+          const jwt = sessionData?.session?.access_token;
+          
+          if (jwt && typeof ADMIN_BASE_URL !== 'undefined') {
+            await fetch(`${ADMIN_BASE_URL}/admin/automation/track`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${jwt}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                account_id: currentNotificationAccount.id,
+                notification_type: selectedNotificationType,
+                success: false,
+                error_message: err.message,
+                phone: currentNotificationAccount.telefono,
+                metadata: {
+                  source: 'accounts_page'
+                }
+              })
+            });
+          }
+        } catch (trackErr) {
+          console.error('Error tracking failed notification:', trackErr);
+        }
+        
+        // Solo ofrecer fallback si el error NO es de configuración o autenticación
+        if (!err.message.includes('ADMIN_BASE_URL') && !err.message.includes('sesión') && !err.message.includes('autenticación')) {
+          const useFallback = confirm('El envío automático falló. ¿Deseas abrir WhatsApp Web para enviar manualmente?');
+          if (useFallback) {
+            let phone = currentNotificationAccount.telefono.trim().replace(/[\s-()]/g, '');
+            if (!phone.startsWith('+')) phone = '+' + phone;
+            const encodedMessage = encodeURIComponent(message);
+            const whatsappUrl = `https://wa.me/${phone.replace('+', '')}?text=${encodedMessage}`;
+            window.open(whatsappUrl, '_blank');
+            closeNotificationModal();
+          }
+        }
+      } finally {
+        // Restaurar botón
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = originalText;
+      }
     }
 
     // Cerrar modal al hacer clic fuera

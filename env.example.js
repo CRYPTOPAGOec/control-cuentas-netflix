@@ -11,6 +11,9 @@
 window.SUPABASE_URL = window.SUPABASE_URL || 'https://<tu-proyecto>.supabase.co';
 window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '<tu-anon-key-publica>';
 
+// URL del servidor admin (para notificaciones WhatsApp y configuración)
+window.ADMIN_BASE_URL = window.ADMIN_BASE_URL || 'http://localhost:3000';
+
 // Opcional: puedes definir otros valores globales aquí
 // window.MI_APP_VAR = 'valor';
 

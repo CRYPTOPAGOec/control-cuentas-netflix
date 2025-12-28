@@ -26,7 +26,7 @@ try{ adminEnv = require(localEnvPath); }catch(e){/* ignore if not present */}
 const SUPABASE_URL = process.env.SUPABASE_URL || adminEnv.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || adminEnv.SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || adminEnv.SUPABASE_ANON_KEY;
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8000;
 
 if(!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY){
   console.error('ERROR: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured (env or env.admin.js)');
@@ -41,9 +41,9 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { au
 
 // Inicializar servicio de WhatsApp
 const whatsappService = new WhatsAppService({
-  wahaUrl: process.env.WAHA_URL,
-  wahaApiKey: process.env.WAHA_API_KEY,
-  wahaSession: process.env.WAHA_SESSION || 'default'
+  wahaUrl: process.env.WAHA_URL || adminEnv.WAHA_URL,
+  wahaApiKey: process.env.WAHA_API_KEY || adminEnv.WAHA_API_KEY,
+  wahaSession: process.env.WAHA_SESSION || adminEnv.WAHA_SESSION || 'default'
 });
 
 const app = express();
@@ -71,9 +71,11 @@ app.get('/env.js', (req, res) => {
 // Configuración generada dinámicamente desde el servidor
 window.SUPABASE_URL = '${SUPABASE_URL}';
 window.SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}';
+window.ADMIN_BASE_URL = 'http://localhost:${PORT}';
 
 console.info('✅ Configuración de Supabase cargada correctamente');
 console.info('URL:', window.SUPABASE_URL);
+console.info('ADMIN_BASE_URL:', window.ADMIN_BASE_URL);
 `;
   
   console.log('[env.js] Sending configuration successfully');
@@ -438,6 +440,200 @@ app.post('/admin/whatsapp/send-bulk', verifyAdminAuth, async (req, res) => {
     });
   } catch (err) {
     console.error(err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// =====================================================
+// AUTOMATION CONFIG ENDPOINTS
+// =====================================================
+
+// Get automation configuration
+app.get('/admin/automation/config', verifyAdminAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('automation_config')
+      .select('*')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .single();
+
+    if (error) throw error;
+
+    return res.json(data);
+  } catch (err) {
+    console.error('Error fetching automation config:', err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// Update automation configuration
+app.put('/admin/automation/config', verifyAdminAuth, async (req, res) => {
+  try {
+    const { status, config, paused_reason } = req.body;
+    const userId = req.user.id;
+
+    // Get current config for logging
+    const { data: currentConfig } = await supabaseAdmin
+      .from('automation_config')
+      .select('*')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .single();
+
+    // Build update object
+    const updates = {
+      updated_by: userId,
+      updated_at: new Date().toISOString()
+    };
+
+    if (status !== undefined) {
+      updates.status = status;
+      if (status === 'paused') {
+        updates.paused_at = new Date().toISOString();
+        updates.paused_by = userId;
+        updates.paused_reason = paused_reason || null;
+      } else if (status === 'active') {
+        updates.paused_at = null;
+        updates.paused_by = null;
+        updates.paused_reason = null;
+      }
+    }
+
+    if (config !== undefined) {
+      updates.config = config;
+    }
+
+    // Update config
+    const { data, error } = await supabaseAdmin
+      .from('automation_config')
+      .update(updates)
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Log the action
+    let action = 'config_change';
+    if (status === 'paused') action = 'pause';
+    else if (status === 'active' && currentConfig?.status === 'paused') action = 'resume';
+    else if (status === 'maintenance') action = 'maintenance_mode';
+
+    await supabaseAdmin
+      .from('automation_logs')
+      .insert({
+        action,
+        config_before: currentConfig,
+        config_after: data,
+        reason: paused_reason || `Configuration updated by admin`,
+        created_by: userId
+      });
+
+    return res.json(data);
+  } catch (err) {
+    console.error('Error updating automation config:', err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// Get automation logs (últimos 100)
+app.get('/admin/automation/logs', verifyAdminAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('automation_logs')
+      .select('*, created_by_user:users!automation_logs_created_by_fkey(email, nombre)')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+
+    return res.json(data);
+  } catch (err) {
+    console.error('Error fetching automation logs:', err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// Get today's notification statistics
+app.get('/admin/automation/stats/today', verifyAdminAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .rpc('get_today_notification_stats');
+
+    if (error) throw error;
+
+    return res.json(data[0] || {
+      total_sent: 0,
+      total_failed: 0,
+      total_pending: 0,
+      by_type: {}
+    });
+  } catch (err) {
+    console.error('Error fetching today stats:', err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// Check rate limit
+app.get('/admin/automation/rate-limit', verifyAdminAuth, async (req, res) => {
+  try {
+    // Get current config
+    const { data: config } = await supabaseAdmin
+      .from('automation_config')
+      .select('config')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .single();
+
+    const limit = config?.config?.limits?.maxPerHour || 50;
+
+    // Check rate limit
+    const { data, error } = await supabaseAdmin
+      .rpc('check_rate_limit', { hour_limit: limit });
+
+    if (error) throw error;
+
+    // Get current count
+    const { count } = await supabaseAdmin
+      .from('notification_tracking')
+      .select('*', { count: 'exact', head: true })
+      .gte('sent_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+      .eq('success', true);
+
+    return res.json({
+      canSend: data,
+      currentCount: count || 0,
+      limit,
+      remaining: Math.max(0, limit - (count || 0))
+    });
+  } catch (err) {
+    console.error('Error checking rate limit:', err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// Track notification sent
+app.post('/admin/automation/track', verifyAdminAuth, async (req, res) => {
+  try {
+    const { account_id, notification_type, success, error_message, phone, message_id, metadata } = req.body;
+
+    const { data, error } = await supabaseAdmin
+      .from('notification_tracking')
+      .insert({
+        account_id,
+        notification_type,
+        success: success !== false,
+        error_message,
+        phone,
+        message_id,
+        metadata: metadata || {}
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return res.json(data);
+  } catch (err) {
+    console.error('Error tracking notification:', err);
     return res.status(500).json({ error: String(err) });
   }
 });

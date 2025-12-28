@@ -187,24 +187,242 @@
       <div class="flex items-start gap-4">
         <div class="text-5xl">📱</div>
         <div class="flex-1">
-          <h3 class="text-lg font-bold text-green-400 mb-2">✨ Sistema de Notificaciones WhatsApp Disponible</h3>
+          <h3 class="text-lg font-bold text-green-400 mb-2">✨ Sistema de Notificaciones WhatsApp Automático</h3>
           <p class="text-sm text-white/70 mb-3">
-            Ahora puedes enviar notificaciones automáticas a tus clientes directamente desde el dashboard. 
-            <span class="text-white font-semibold">8 plantillas predefinidas</span> listas para usar.
+            Envía notificaciones automáticas a tus clientes con un solo clic usando WAHA API. 
+            <span class="text-white font-semibold">Sin abrir pestañas</span>, <span class="text-green-300 font-semibold">envío directo e instantáneo</span>. 
+            8 plantillas predefinidas listas para usar.
           </p>
           <div class="flex flex-wrap gap-2 mb-3">
             <span class="px-3 py-1 bg-cyan-500/20 text-cyan-300 rounded-full text-xs">⏰ Recordatorios de pago</span>
             <span class="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-xs">✅ Confirmaciones</span>
             <span class="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-xs">🔄 Renovaciones</span>
             <span class="px-3 py-1 bg-white/20 text-white rounded-full text-xs">✏️ Personalizados</span>
+            <span class="px-3 py-1 bg-orange-500/20 text-orange-300 rounded-full text-xs">🤖 100% Automático</span>
           </div>
           <div class="bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-3">
             <p class="text-sm text-emerald-200">
               <strong>💡 Cómo usar:</strong> En la tabla de "Cuentas que Vencen Pronto" más abajo, 
               haz clic en el botón <span class="inline-block px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">📱</span> 
-              de cada cuenta para abrir el panel de notificaciones. Solo aparece en cuentas con teléfono registrado.
+              de cada cuenta, selecciona el tipo de notificación y da clic en "Enviar Notificación". 
+              <strong>El mensaje se enviará automáticamente</strong> sin necesidad de abrir WhatsApp Web.
             </p>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel de Configuración de Automatización -->
+    <div id="automation-config-panel" class="glass p-5 rounded-2xl mb-6 border border-cyan-500/20 hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold flex items-center gap-2">
+          ⚙️ Configuración de Automatización
+        </h2>
+        <button onclick="toggleAutomationPanel()" class="text-xs text-cyan-400 hover:text-cyan-300">
+          <span id="toggle-panel-text">🔽 Minimizar</span>
+        </button>
+      </div>
+
+      <div id="automation-panel-content">
+        <!-- Estado del Sistema -->
+        <div class="mb-6 p-4 bg-black/20 rounded-xl border border-white/10">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-white/80">🎛️ Estado del Sistema</h3>
+            <div id="system-status-badge" class="px-3 py-1 rounded-full text-xs font-semibold">
+              <span id="status-indicator">●</span> <span id="status-text">Cargando...</span>
+            </div>
+          </div>
+          
+          <div class="flex gap-2 flex-wrap">
+            <button onclick="pauseAutomation()" id="btn-pause" class="px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 rounded-lg text-sm transition disabled:opacity-50">
+              ⏸️ Pausar
+            </button>
+            <button onclick="resumeAutomation()" id="btn-resume" class="px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg text-sm transition disabled:opacity-50">
+              ▶️ Reanudar
+            </button>
+            <button onclick="setMaintenanceMode()" id="btn-maintenance" class="px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg text-sm transition disabled:opacity-50">
+              🔧 Mantenimiento
+            </button>
+            <button onclick="loadAutomationConfig()" class="px-4 py-2 glass hover:bg-white/10 text-cyan-300 rounded-lg text-sm transition">
+              🔄 Recargar
+            </button>
+          </div>
+
+          <div id="pause-reason-input" class="mt-3 hidden">
+            <input type="text" id="pause-reason" placeholder="Razón de la pausa (opcional)" class="w-full px-3 py-2 rounded-lg input-futur text-sm">
+          </div>
+        </div>
+
+        <!-- Configuración de Intervalos -->
+        <div class="mb-6 p-4 bg-black/20 rounded-xl border border-white/10">
+          <h3 class="text-sm font-semibold text-white/80 mb-4">⏱️ Intervalos de Envío (milisegundos)</h3>
+          
+          <div class="space-y-4">
+            <div>
+              <div class="flex justify-between mb-2">
+                <label class="text-xs text-white/60">Envío Masivo:</label>
+                <span id="interval-bulk-value" class="text-xs text-cyan-300 font-mono">3000ms</span>
+              </div>
+              <input type="range" id="interval-bulk" min="1000" max="10000" step="500" value="3000" 
+                class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                oninput="updateIntervalDisplay('bulk', this.value)">
+              <div class="flex justify-between text-xs text-white/40 mt-1">
+                <span>1s</span>
+                <span>10s</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between mb-2">
+                <label class="text-xs text-white/60">Reintentos:</label>
+                <span id="interval-retry-value" class="text-xs text-cyan-300 font-mono">5000ms</span>
+              </div>
+              <input type="range" id="interval-retry" min="2000" max="15000" step="1000" value="5000" 
+                class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                oninput="updateIntervalDisplay('retry', this.value)">
+              <div class="flex justify-between text-xs text-white/40 mt-1">
+                <span>2s</span>
+                <span>15s</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between mb-2">
+                <label class="text-xs text-white/60">Verificación de Estado:</label>
+                <span id="interval-check-value" class="text-xs text-cyan-300 font-mono">60000ms</span>
+              </div>
+              <input type="range" id="interval-check" min="30000" max="300000" step="30000" value="60000" 
+                class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                oninput="updateIntervalDisplay('check', this.value)">
+              <div class="flex justify-between text-xs text-white/40 mt-1">
+                <span>30s</span>
+                <span>5min</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tipos de Notificaciones -->
+        <div class="mb-6 p-4 bg-black/20 rounded-xl border border-white/10">
+          <h3 class="text-sm font-semibold text-white/80 mb-4">📬 Tipos de Notificaciones Activas</h3>
+          
+          <div class="space-y-3">
+            <div class="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5">
+              <div class="flex items-center gap-3">
+                <input type="checkbox" id="notif-3-days" checked class="w-4 h-4 accent-cyan-500">
+                <label for="notif-3-days" class="text-sm cursor-pointer">⏰ 3 días antes</label>
+              </div>
+              <input type="number" id="interval-3-days" min="1000" max="10000" step="500" value="2000" 
+                class="w-20 px-2 py-1 rounded input-futur text-xs text-center">
+            </div>
+
+            <div class="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5">
+              <div class="flex items-center gap-3">
+                <input type="checkbox" id="notif-2-days" checked class="w-4 h-4 accent-cyan-500">
+                <label for="notif-2-days" class="text-sm cursor-pointer">⚠️ 2 días antes</label>
+              </div>
+              <input type="number" id="interval-2-days" min="1000" max="10000" step="500" value="2000" 
+                class="w-20 px-2 py-1 rounded input-futur text-xs text-center">
+            </div>
+
+            <div class="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5">
+              <div class="flex items-center gap-3">
+                <input type="checkbox" id="notif-1-day" checked class="w-4 h-4 accent-cyan-500">
+                <label for="notif-1-day" class="text-sm cursor-pointer">🔴 1 día antes</label>
+              </div>
+              <input type="number" id="interval-1-day" min="1000" max="10000" step="500" value="2000" 
+                class="w-20 px-2 py-1 rounded input-futur text-xs text-center">
+            </div>
+
+            <div class="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5">
+              <div class="flex items-center gap-3">
+                <input type="checkbox" id="notif-due-today" checked class="w-4 h-4 accent-cyan-500">
+                <label for="notif-due-today" class="text-sm cursor-pointer">💸 Vence HOY (Prioridad)</label>
+              </div>
+              <input type="number" id="interval-due-today" min="500" max="10000" step="500" value="1000" 
+                class="w-20 px-2 py-1 rounded input-futur text-xs text-center">
+            </div>
+
+            <div class="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5">
+              <div class="flex items-center gap-3">
+                <input type="checkbox" id="notif-overdue" checked class="w-4 h-4 accent-cyan-500">
+                <label for="notif-overdue" class="text-sm cursor-pointer">🔥 ATRASADO (Urgente)</label>
+              </div>
+              <input type="number" id="interval-overdue" min="500" max="10000" step="500" value="1000" 
+                class="w-20 px-2 py-1 rounded input-futur text-xs text-center">
+            </div>
+
+            <div class="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5">
+              <div class="flex items-center gap-3">
+                <input type="checkbox" id="notif-renewal" checked class="w-4 h-4 accent-cyan-500">
+                <label for="notif-renewal" class="text-sm cursor-pointer">🔄 Renovación próxima</label>
+              </div>
+              <input type="number" id="interval-renewal" min="1000" max="10000" step="500" value="3000" 
+                class="w-20 px-2 py-1 rounded input-futur text-xs text-center">
+            </div>
+          </div>
+        </div>
+
+        <!-- Límites de Seguridad -->
+        <div class="mb-6 p-4 bg-black/20 rounded-xl border border-white/10">
+          <h3 class="text-sm font-semibold text-white/80 mb-4">🛡️ Límites de Seguridad</h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs text-white/60 mb-2">Max. mensajes por hora:</label>
+              <input type="number" id="limit-per-hour" min="10" max="200" value="50" 
+                class="w-full px-3 py-2 rounded-lg input-futur text-sm">
+            </div>
+            
+            <div>
+              <label class="block text-xs text-white/60 mb-2">Max. reintentos:</label>
+              <input type="number" id="limit-retries" min="1" max="10" value="3" 
+                class="w-full px-3 py-2 rounded-lg input-futur text-sm">
+            </div>
+            
+            <div>
+              <label class="block text-xs text-white/60 mb-2">Cooldown tras error (min):</label>
+              <input type="number" id="limit-cooldown" min="5" max="120" value="30" 
+                class="w-full px-3 py-2 rounded-lg input-futur text-sm">
+            </div>
+          </div>
+        </div>
+
+        <!-- Estadísticas del Día -->
+        <div class="mb-6 p-4 bg-black/20 rounded-xl border border-white/10">
+          <h3 class="text-sm font-semibold text-white/80 mb-4">📊 Estadísticas de Hoy</h3>
+          
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="text-center">
+              <div class="text-2xl font-bold text-green-400" id="stat-sent-today">0</div>
+              <div class="text-xs text-white/60 mt-1">Enviados</div>
+            </div>
+            
+            <div class="text-center">
+              <div class="text-2xl font-bold text-red-400" id="stat-failed-today">0</div>
+              <div class="text-xs text-white/60 mt-1">Fallidos</div>
+            </div>
+            
+            <div class="text-center">
+              <div class="text-2xl font-bold text-orange-400" id="stat-pending-today">0</div>
+              <div class="text-xs text-white/60 mt-1">Pendientes</div>
+            </div>
+            
+            <div class="text-center">
+              <div class="text-2xl font-bold text-cyan-400" id="stat-rate-limit">50</div>
+              <div class="text-xs text-white/60 mt-1">Límite/hora</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botón Guardar -->
+        <div class="flex justify-end gap-3">
+          <button onclick="resetAutomationConfig()" class="px-4 py-2 border border-white/20 hover:bg-white/10 rounded-lg text-sm transition">
+            ↺ Restaurar Valores
+          </button>
+          <button onclick="saveAutomationConfig()" class="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold rounded-lg text-sm transition">
+            💾 Guardar Configuración
+          </button>
         </div>
       </div>
     </div>
@@ -374,7 +592,7 @@
             Cancelar
           </button>
           <button id="send-whatsapp-btn" onclick="sendWhatsAppMessage()" class="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-            📱 Abrir WhatsApp
+            ✅ Enviar Notificación
           </button>
         </div>
       </div>
@@ -1884,7 +2102,8 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
       }
     }
 
-    function sendWhatsAppMessage() {
+    // Enviar notificación usando WAHA API (automático)
+    async function sendWhatsAppMessage() {
       if (!currentNotificationAccount || !selectedNotificationType) return;
 
       let message = '';
@@ -1899,12 +2118,122 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
         return;
       }
 
-      const phone = currentNotificationAccount.telefono.replace(/\D/g, '');
-      const encodedMessage = encodeURIComponent(message);
-      const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
+      // Deshabilitar botón para evitar doble envío
+      const sendBtn = document.getElementById('send-whatsapp-btn');
+      const originalText = sendBtn.innerHTML;
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '📤 Enviando...';
 
-      window.open(whatsappUrl, '_blank');
-      closeNotificationModal();
+      try {
+        const jwt = localStorage.getItem('jwt');
+        
+        // Check rate limit first
+        const rateLimitResponse = await fetch(`${ADMIN_BASE_URL}/admin/automation/rate-limit`, {
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (rateLimitResponse.ok) {
+          const rateLimit = await rateLimitResponse.json();
+          if (!rateLimit.canSend) {
+            throw new Error(`Límite de envíos alcanzado: ${rateLimit.currentCount}/${rateLimit.limit} por hora. Espera unos minutos.`);
+          }
+        }
+
+        // Preparar data para envío
+        const phone = currentNotificationAccount.telefono;
+        
+        // Send using WAHA API
+        const response = await fetch(`${ADMIN_BASE_URL}/admin/whatsapp/send-custom`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            phone: phone,
+            template: message
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al enviar mensaje');
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+          // Track the notification
+          await fetch(`${ADMIN_BASE_URL}/admin/automation/track`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${jwt}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              account_id: currentNotificationAccount.id,
+              notification_type: selectedNotificationType,
+              success: true,
+              phone: phone,
+              message_id: result.messageId,
+              metadata: {
+                is_grouped: isGroupedNotification,
+                accounts_count: isGroupedNotification ? groupedAccountsForNotification.length : 1
+              }
+            })
+          });
+
+          alert(`✅ ¡Notificación enviada exitosamente a ${currentNotificationAccount.propietario}!`);
+          closeNotificationModal();
+          
+          // Recargar estadísticas si el panel está visible
+          if (document.getElementById('automation-config-panel').classList.contains('hidden') === false) {
+            await loadTodayStats();
+          }
+        } else {
+          throw new Error(result.error || 'Error desconocido al enviar');
+        }
+
+      } catch (err) {
+        console.error('Error sending WhatsApp notification:', err);
+        alert(`❌ Error al enviar notificación:\n${err.message}\n\n¿Deseas intentar con WhatsApp Web (manual)?`);
+        
+        // Track failed notification
+        try {
+          const jwt = localStorage.getItem('jwt');
+          await fetch(`${ADMIN_BASE_URL}/admin/automation/track`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${jwt}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              account_id: currentNotificationAccount.id,
+              notification_type: selectedNotificationType,
+              success: false,
+              error_message: err.message,
+              phone: currentNotificationAccount.telefono
+            })
+          });
+        } catch (trackErr) {
+          console.error('Error tracking failed notification:', trackErr);
+        }
+        
+        // Ofrecer fallback a WhatsApp Web
+        if (confirm('¿Abrir WhatsApp Web para enviar manualmente?')) {
+          const phone = currentNotificationAccount.telefono.replace(/\D/g, '');
+          const encodedMessage = encodeURIComponent(message);
+          const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
+          window.open(whatsappUrl, '_blank');
+        }
+      } finally {
+        // Restaurar botón
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = originalText;
+      }
     }
 
     // Cerrar modal al hacer clic fuera
@@ -1924,6 +2253,404 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
 
     // hook botón debug
     document.getElementById('btn-debug-30d').addEventListener('click', ()=> openRevenue30Modal());
+
+    // =====================================================
+    // AUTOMATION CONFIG FUNCTIONS
+    // =====================================================
+
+    let currentAutomationConfig = null;
+    let automationPanelExpanded = true;
+
+    // Toggle panel visibility
+    function toggleAutomationPanel() {
+      automationPanelExpanded = !automationPanelExpanded;
+      const content = document.getElementById('automation-panel-content');
+      const toggleText = document.getElementById('toggle-panel-text');
+      
+      if (automationPanelExpanded) {
+        content.style.display = 'block';
+        toggleText.textContent = '🔽 Minimizar';
+      } else {
+        content.style.display = 'none';
+        toggleText.textContent = '🔼 Expandir';
+      }
+    }
+
+    // Load automation configuration
+    async function loadAutomationConfig() {
+      try {
+        const jwt = localStorage.getItem('jwt');
+        const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/config`, {
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) throw new Error('Error al cargar configuración');
+
+        const config = await response.json();
+        currentAutomationConfig = config;
+
+        // Update UI
+        updateAutomationUI(config);
+        
+        // Load stats
+        await loadTodayStats();
+        
+        showTemporaryNotification('✅ Configuración cargada correctamente', 'success');
+      } catch (err) {
+        console.error('Error loading automation config:', err);
+        showTemporaryNotification('❌ Error al cargar configuración: ' + err.message, 'error');
+      }
+    }
+
+    // Update UI with current config
+    function updateAutomationUI(config) {
+      // Status badge
+      const statusBadge = document.getElementById('system-status-badge');
+      const statusIndicator = document.getElementById('status-indicator');
+      const statusText = document.getElementById('status-text');
+      
+      if (config.status === 'active') {
+        statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-300';
+        statusIndicator.textContent = '●';
+        statusText.textContent = 'Activo';
+        document.getElementById('btn-pause').disabled = false;
+        document.getElementById('btn-resume').disabled = true;
+        document.getElementById('btn-maintenance').disabled = false;
+      } else if (config.status === 'paused') {
+        statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-300';
+        statusIndicator.textContent = '⏸';
+        statusText.textContent = 'Pausado';
+        document.getElementById('btn-pause').disabled = true;
+        document.getElementById('btn-resume').disabled = false;
+        document.getElementById('btn-maintenance').disabled = true;
+      } else if (config.status === 'maintenance') {
+        statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-300';
+        statusIndicator.textContent = '🔧';
+        statusText.textContent = 'Mantenimiento';
+        document.getElementById('btn-pause').disabled = true;
+        document.getElementById('btn-resume').disabled = false;
+        document.getElementById('btn-maintenance').disabled = true;
+      }
+
+      // Intervals
+      const intervals = config.config.intervals || {};
+      document.getElementById('interval-bulk').value = intervals.bulk || 3000;
+      document.getElementById('interval-retry').value = intervals.retry || 5000;
+      document.getElementById('interval-check').value = intervals.check || 60000;
+      updateIntervalDisplay('bulk', intervals.bulk || 3000);
+      updateIntervalDisplay('retry', intervals.retry || 5000);
+      updateIntervalDisplay('check', intervals.check || 60000);
+
+      // Notification types
+      const notifTypes = config.config.notificationTypes || {};
+      document.getElementById('notif-3-days').checked = notifTypes['3_days_before']?.enabled !== false;
+      document.getElementById('interval-3-days').value = notifTypes['3_days_before']?.interval || 2000;
+      
+      document.getElementById('notif-2-days').checked = notifTypes['2_days_before']?.enabled !== false;
+      document.getElementById('interval-2-days').value = notifTypes['2_days_before']?.interval || 2000;
+      
+      document.getElementById('notif-1-day').checked = notifTypes['1_day_before']?.enabled !== false;
+      document.getElementById('interval-1-day').value = notifTypes['1_day_before']?.interval || 2000;
+      
+      document.getElementById('notif-due-today').checked = notifTypes['due_today']?.enabled !== false;
+      document.getElementById('interval-due-today').value = notifTypes['due_today']?.interval || 1000;
+      
+      document.getElementById('notif-overdue').checked = notifTypes['overdue']?.enabled !== false;
+      document.getElementById('interval-overdue').value = notifTypes['overdue']?.interval || 1000;
+      
+      document.getElementById('notif-renewal').checked = notifTypes['renewal']?.enabled !== false;
+      document.getElementById('interval-renewal').value = notifTypes['renewal']?.interval || 3000;
+
+      // Limits
+      const limits = config.config.limits || {};
+      document.getElementById('limit-per-hour').value = limits.maxPerHour || 50;
+      document.getElementById('limit-retries').value = limits.maxRetries || 3;
+      document.getElementById('limit-cooldown').value = limits.cooldownMinutes || 30;
+    }
+
+    // Update interval display
+    function updateIntervalDisplay(type, value) {
+      document.getElementById(`interval-${type}-value`).textContent = `${value}ms`;
+    }
+
+    // Load today's statistics
+    async function loadTodayStats() {
+      try {
+        const jwt = localStorage.getItem('jwt');
+        const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/stats/today`, {
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) throw new Error('Error al cargar estadísticas');
+
+        const stats = await response.json();
+        
+        document.getElementById('stat-sent-today').textContent = stats.total_sent || 0;
+        document.getElementById('stat-failed-today').textContent = stats.total_failed || 0;
+        document.getElementById('stat-pending-today').textContent = stats.total_pending || 0;
+        
+        // Load rate limit
+        const rateLimitResponse = await fetch(`${ADMIN_BASE_URL}/admin/automation/rate-limit`, {
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (rateLimitResponse.ok) {
+          const rateLimit = await rateLimitResponse.json();
+          document.getElementById('stat-rate-limit').textContent = `${rateLimit.currentCount || 0}/${rateLimit.limit || 50}`;
+        }
+      } catch (err) {
+        console.error('Error loading today stats:', err);
+      }
+    }
+
+    // Pause automation
+    async function pauseAutomation() {
+      const reason = prompt('Razón de la pausa (opcional):');
+      
+      try {
+        const jwt = localStorage.getItem('jwt');
+        const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/config`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            status: 'paused',
+            paused_reason: reason || 'Pausado por el administrador'
+          })
+        });
+
+        if (!response.ok) throw new Error('Error al pausar automatización');
+
+        await loadAutomationConfig();
+        showTemporaryNotification('⏸️ Automatización pausada correctamente', 'success');
+      } catch (err) {
+        console.error('Error pausing automation:', err);
+        showTemporaryNotification('❌ Error al pausar: ' + err.message, 'error');
+      }
+    }
+
+    // Resume automation
+    async function resumeAutomation() {
+      try {
+        const jwt = localStorage.getItem('jwt');
+        const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/config`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            status: 'active'
+          })
+        });
+
+        if (!response.ok) throw new Error('Error al reanudar automatización');
+
+        await loadAutomationConfig();
+        showTemporaryNotification('▶️ Automatización reanudada correctamente', 'success');
+      } catch (err) {
+        console.error('Error resuming automation:', err);
+        showTemporaryNotification('❌ Error al reanudar: ' + err.message, 'error');
+      }
+    }
+
+    // Set maintenance mode
+    async function setMaintenanceMode() {
+      if (!confirm('¿Estás seguro de activar el modo mantenimiento? Las notificaciones automáticas se detendrán.')) {
+        return;
+      }
+
+      try {
+        const jwt = localStorage.getItem('jwt');
+        const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/config`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            status: 'maintenance',
+            paused_reason: 'Modo mantenimiento activado'
+          })
+        });
+
+        if (!response.ok) throw new Error('Error al activar modo mantenimiento');
+
+        await loadAutomationConfig();
+        showTemporaryNotification('🔧 Modo mantenimiento activado', 'success');
+      } catch (err) {
+        console.error('Error setting maintenance mode:', err);
+        showTemporaryNotification('❌ Error: ' + err.message, 'error');
+      }
+    }
+
+    // Save automation configuration
+    async function saveAutomationConfig() {
+      try {
+        // Build config object
+        const config = {
+          intervals: {
+            bulk: parseInt(document.getElementById('interval-bulk').value),
+            retry: parseInt(document.getElementById('interval-retry').value),
+            check: parseInt(document.getElementById('interval-check').value)
+          },
+          limits: {
+            maxPerHour: parseInt(document.getElementById('limit-per-hour').value),
+            maxRetries: parseInt(document.getElementById('limit-retries').value),
+            cooldownMinutes: parseInt(document.getElementById('limit-cooldown').value)
+          },
+          notificationTypes: {
+            '3_days_before': {
+              enabled: document.getElementById('notif-3-days').checked,
+              priority: 3,
+              interval: parseInt(document.getElementById('interval-3-days').value)
+            },
+            '2_days_before': {
+              enabled: document.getElementById('notif-2-days').checked,
+              priority: 3,
+              interval: parseInt(document.getElementById('interval-2-days').value)
+            },
+            '1_day_before': {
+              enabled: document.getElementById('notif-1-day').checked,
+              priority: 2,
+              interval: parseInt(document.getElementById('interval-1-day').value)
+            },
+            'due_today': {
+              enabled: document.getElementById('notif-due-today').checked,
+              priority: 1,
+              interval: parseInt(document.getElementById('interval-due-today').value)
+            },
+            'overdue': {
+              enabled: document.getElementById('notif-overdue').checked,
+              priority: 1,
+              interval: parseInt(document.getElementById('interval-overdue').value)
+            },
+            'renewal': {
+              enabled: document.getElementById('notif-renewal').checked,
+              priority: 4,
+              interval: parseInt(document.getElementById('interval-renewal').value)
+            }
+          }
+        };
+
+        const jwt = localStorage.getItem('jwt');
+        const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/config`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ config })
+        });
+
+        if (!response.ok) throw new Error('Error al guardar configuración');
+
+        await loadAutomationConfig();
+        showTemporaryNotification('💾 Configuración guardada correctamente', 'success');
+      } catch (err) {
+        console.error('Error saving automation config:', err);
+        showTemporaryNotification('❌ Error al guardar: ' + err.message, 'error');
+      }
+    }
+
+    // Reset to default values
+    async function resetAutomationConfig() {
+      if (!confirm('¿Restaurar valores por defecto? Esto sobrescribirá la configuración actual.')) {
+        return;
+      }
+
+      document.getElementById('interval-bulk').value = 3000;
+      document.getElementById('interval-retry').value = 5000;
+      document.getElementById('interval-check').value = 60000;
+      updateIntervalDisplay('bulk', 3000);
+      updateIntervalDisplay('retry', 5000);
+      updateIntervalDisplay('check', 60000);
+
+      document.getElementById('notif-3-days').checked = true;
+      document.getElementById('interval-3-days').value = 2000;
+      document.getElementById('notif-2-days').checked = true;
+      document.getElementById('interval-2-days').value = 2000;
+      document.getElementById('notif-1-day').checked = true;
+      document.getElementById('interval-1-day').value = 2000;
+      document.getElementById('notif-due-today').checked = true;
+      document.getElementById('interval-due-today').value = 1000;
+      document.getElementById('notif-overdue').checked = true;
+      document.getElementById('interval-overdue').value = 1000;
+      document.getElementById('notif-renewal').checked = true;
+      document.getElementById('interval-renewal').value = 3000;
+
+      document.getElementById('limit-per-hour').value = 50;
+      document.getElementById('limit-retries').value = 3;
+      document.getElementById('limit-cooldown').value = 30;
+
+      showTemporaryNotification('↺ Valores restaurados a configuración por defecto', 'info');
+    }
+
+    // Show temporary notification
+    function showTemporaryNotification(message, type = 'info') {
+      const alertSection = document.getElementById('alerts-section');
+      const alertId = 'temp-alert-' + Date.now();
+      
+      let bgColor = 'bg-blue-500/10 border-blue-500/30';
+      if (type === 'success') bgColor = 'bg-green-500/10 border-green-500/30';
+      if (type === 'error') bgColor = 'bg-red-500/10 border-red-500/30';
+      if (type === 'warning') bgColor = 'bg-orange-500/10 border-orange-500/30';
+      
+      const alert = document.createElement('div');
+      alert.id = alertId;
+      alert.className = `glass p-4 rounded-xl border ${bgColor}`;
+      alert.innerHTML = `<p class="text-sm">${message}</p>`;
+      
+      alertSection.appendChild(alert);
+      
+      setTimeout(() => {
+        const el = document.getElementById(alertId);
+        if (el) el.remove();
+      }, 5000);
+    }
+
+    // Check if user is admin and show automation panel
+    async function checkAdminAndShowAutomationPanel() {
+      try {
+        const jwt = localStorage.getItem('jwt');
+        const { data, error } = await supabase.auth.getUser(jwt);
+        
+        if (error) throw error;
+        
+        const { data: userData } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+        
+        if (userData && userData.role === 'admin') {
+          document.getElementById('automation-config-panel').classList.remove('hidden');
+          await loadAutomationConfig();
+          
+          // Actualizar estadísticas cada minuto
+          setInterval(loadTodayStats, 60000);
+        }
+      } catch (err) {
+        console.error('Error checking admin status:', err);
+      }
+    }
+
+    // Initialize automation panel on page load
+    window.addEventListener('load', () => {
+      setTimeout(checkAdminAndShowAutomationPanel, 1000);
+    });
+
   </script>
 
     <!-- Modal detalle ingresos 30d -->
