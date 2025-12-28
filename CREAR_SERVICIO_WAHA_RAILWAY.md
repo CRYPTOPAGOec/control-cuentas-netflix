@@ -25,8 +25,9 @@
 4. Click en **"Docker Image"**
 5. En el campo "Image", escribe exactamente:
    ```
-   devlikeapro/waha-plus
+   devlikeapro/waha
    ```
+   ⚠️ **IMPORTANTE**: Usa `waha` (sin -plus), la versión plus es de pago
 6. Click en **"Add Service"** o **"Deploy"**
 
 ### Opción B: Proyecto Nuevo (Alternativa)
@@ -35,7 +36,7 @@
 2. Selecciona **"Deploy from Image"**
 3. Escribe:
    ```
-   devlikeapro/waha-plus
+   devlikeapro/waha
    ```
 4. Click en **"Deploy"**
 
