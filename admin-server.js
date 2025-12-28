@@ -67,11 +67,18 @@ app.get('/env.js', (req, res) => {
     );
   }
   
+  // Detectar la URL base según el entorno
+  const adminBaseUrl = process.env.RAILWAY_STATIC_URL 
+    ? `https://${process.env.RAILWAY_STATIC_URL}`
+    : process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+    : `http://localhost:${PORT}`;
+  
   const envContent = `
 // Configuración generada dinámicamente desde el servidor
 window.SUPABASE_URL = '${SUPABASE_URL}';
 window.SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}';
-window.ADMIN_BASE_URL = 'http://localhost:${PORT}';
+window.ADMIN_BASE_URL = '${adminBaseUrl}';
 
 console.info('✅ Configuración de Supabase cargada correctamente');
 console.info('URL:', window.SUPABASE_URL);
@@ -79,6 +86,7 @@ console.info('ADMIN_BASE_URL:', window.ADMIN_BASE_URL);
 `;
   
   console.log('[env.js] Sending configuration successfully');
+  console.log('[env.js] ADMIN_BASE_URL:', adminBaseUrl);
   res.type('application/javascript').send(envContent);
 });
 
