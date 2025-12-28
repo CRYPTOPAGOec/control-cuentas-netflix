@@ -91,10 +91,16 @@ class WhatsAppService {
       return { success: false, error: 'WAHA no configurado' };
     }
 
+    if (!this.wahaUrl) {
+      console.error('❌ WAHA_URL no está configurado');
+      return { success: false, error: 'WAHA_URL no configurado en el servidor' };
+    }
+
     try {
       const chatId = this.formatPhoneNumber(phone);
       
       console.log(`📤 Enviando WhatsApp a ${phone} (${chatId})`);
+      console.log(`📡 WAHA URL: ${this.wahaUrl}`);
       
       const response = await axios.post(
         `${this.wahaUrl}/api/sendText`,
