@@ -13,7 +13,14 @@ const axios = require('axios');
 
 class WhatsAppService {
   constructor(config = {}) {
-    this.wahaUrl = config.wahaUrl || process.env.WAHA_URL;
+    let wahaUrl = config.wahaUrl || process.env.WAHA_URL;
+    
+    // Asegurar que la URL tenga el protocolo https://
+    if (wahaUrl && !wahaUrl.startsWith('http://') && !wahaUrl.startsWith('https://')) {
+      wahaUrl = 'https://' + wahaUrl;
+    }
+    
+    this.wahaUrl = wahaUrl;
     this.wahaApiKey = config.wahaApiKey || process.env.WAHA_API_KEY;
     this.wahaSession = config.wahaSession || process.env.WAHA_SESSION || 'default';
     this.enabled = config.enabled !== false && !!this.wahaUrl;
