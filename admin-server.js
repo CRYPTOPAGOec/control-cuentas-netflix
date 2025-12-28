@@ -68,11 +68,10 @@ app.get('/env.js', (req, res) => {
   }
   
   // Detectar la URL base según el entorno
-  const adminBaseUrl = process.env.RAILWAY_STATIC_URL 
-    ? `https://${process.env.RAILWAY_STATIC_URL}`
-    : process.env.RAILWAY_PUBLIC_DOMAIN
-    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-    : `http://localhost:${PORT}`;
+  // En Railway, usar el host del request. En local, usar localhost
+  const host = req.get('host');
+  const protocol = host.includes('railway.app') || host.includes('herokuapp.com') ? 'https' : 'http';
+  const adminBaseUrl = `${protocol}://${host}`;
   
   const envContent = `
 // Configuración generada dinámicamente desde el servidor
@@ -86,6 +85,7 @@ console.info('ADMIN_BASE_URL:', window.ADMIN_BASE_URL);
 `;
   
   console.log('[env.js] Sending configuration successfully');
+  console.log('[env.js] Host:', host);
   console.log('[env.js] ADMIN_BASE_URL:', adminBaseUrl);
   res.type('application/javascript').send(envContent);
 });
