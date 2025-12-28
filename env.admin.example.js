@@ -20,7 +20,17 @@ module.exports = {
   SUPABASE_SERVICE_ROLE_KEY: '<tu-service-role-key-aqui>',
 
   // Opcional: cadena de conexión Postgres para tareas administrativas y migraciones (solo servidores)
-  PG_CONNECTION: 'postgresql://usuario:password@host:port/postgres'
+  PG_CONNECTION: 'postgresql://usuario:password@host:port/postgres',
+
+  // ===== CONFIGURACIÓN WAHA (WhatsApp HTTP API) =====
+  // URL de tu instancia de WAHA en Railway
+  WAHA_URL: 'https://tu-waha-instance.up.railway.app',
+
+  // Clave API para autenticar con WAHA (genera una clave segura)
+  WAHA_API_KEY: '<genera-una-clave-segura-aqui>',
+
+  // Sesión de WhatsApp (default es suficiente para una sola instancia)
+  WAHA_SESSION: 'default'
 };
 
 /*

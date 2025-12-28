@@ -16,6 +16,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
+const WhatsAppService = require('./whatsapp_service');
 
 // Cargar env.admin.js si existe
 let adminEnv = {};
@@ -37,6 +38,13 @@ if(!SUPABASE_ANON_KEY){
 }
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
+// Inicializar servicio de WhatsApp
+const whatsappService = new WhatsAppService({
+  wahaUrl: process.env.WAHA_URL,
+  wahaApiKey: process.env.WAHA_API_KEY,
+  wahaSession: process.env.WAHA_SESSION || 'default'
+});
 
 const app = express();
 app.use(cors());
@@ -283,6 +291,157 @@ app.delete('/admin/access-codes/:id', verifyAdminAuth, async (req,res)=>{
   }catch(err){ console.error(err); return res.status(500).json({ error: String(err) }); }
 });
 
+// ===== WHATSAPP ENDPOINTS =====
+
+// Check WhatsApp connection status
+app.get('/admin/whatsapp/status', verifyAdminAuth, async (req, res) => {
+  try {
+    const isConnected = await whatsappService.checkConnection();
+    return res.json({ 
+      enabled: whatsappService.enabled,
+      connected: isConnected,
+      wahaUrl: whatsappService.wahaUrl ? '✓ Configured' : '✗ Not configured'
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// Send payment reminder
+app.post('/admin/whatsapp/send-payment-reminder', verifyAdminAuth, async (req, res) => {
+  try {
+    const { accountId } = req.body;
+    if (!accountId) return res.status(400).json({ error: 'accountId required' });
+    
+    // Obtener datos de la cuenta
+    const { data: account, error } = await supabaseAdmin
+      .from('cuentas')
+      .select('*')
+      .eq('id', accountId)
+      .single();
+    
+    if (error || !account) {
+      return res.status(404).json({ error: 'Cuenta no encontrada' });
+    }
+    
+    if (!account.telefono) {
+      return res.status(400).json({ error: 'La cuenta no tiene teléfono registrado' });
+    }
+    
+    // Enviar notificación
+    const result = await whatsappService.sendPaymentReminder(account);
+    return res.json(result);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// Send payment confirmation
+app.post('/admin/whatsapp/send-payment-confirmation', verifyAdminAuth, async (req, res) => {
+  try {
+    const { accountId } = req.body;
+    if (!accountId) return res.status(400).json({ error: 'accountId required' });
+    
+    // Obtener datos de la cuenta
+    const { data: account, error } = await supabaseAdmin
+      .from('cuentas')
+      .select('*')
+      .eq('id', accountId)
+      .single();
+    
+    if (error || !account) {
+      return res.status(404).json({ error: 'Cuenta no encontrada' });
+    }
+    
+    if (!account.telefono) {
+      return res.status(400).json({ error: 'La cuenta no tiene teléfono registrado' });
+    }
+    
+    // Enviar confirmación
+    const result = await whatsappService.sendPaymentConfirmation(account);
+    return res.json(result);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// Send custom message
+app.post('/admin/whatsapp/send-custom', verifyAdminAuth, async (req, res) => {
+  try {
+    const { phone, template, variables } = req.body;
+    if (!phone || !template) {
+      return res.status(400).json({ error: 'phone and template required' });
+    }
+    
+    const result = await whatsappService.sendCustomNotification(phone, template, variables || {});
+    return res.json(result);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// Send bulk notifications
+app.post('/admin/whatsapp/send-bulk', verifyAdminAuth, async (req, res) => {
+  try {
+    const { notifications, delayMs } = req.body;
+    if (!notifications || !Array.isArray(notifications)) {
+      return res.status(400).json({ error: 'notifications array required' });
+    }
+    
+    // Validar que cada notificación tenga los campos requeridos
+    const messages = [];
+    for (const notif of notifications) {
+      if (!notif.accountId) {
+        return res.status(400).json({ error: 'Each notification must have accountId' });
+      }
+      
+      // Obtener datos de la cuenta
+      const { data: account, error } = await supabaseAdmin
+        .from('cuentas')
+        .select('*')
+        .eq('id', notif.accountId)
+        .single();
+      
+      if (error || !account || !account.telefono) {
+        console.warn(`⚠️ Cuenta ${notif.accountId} sin teléfono, omitiendo...`);
+        continue;
+      }
+      
+      // Determinar tipo de mensaje y generar contenido
+      let message = '';
+      if (notif.type === 'payment_reminder') {
+        const reminderResult = await whatsappService.sendPaymentReminder(account);
+        continue; // Ya se envió, no agregar a messages
+      } else if (notif.type === 'custom' && notif.template) {
+        message = notif.template;
+        Object.keys(account).forEach(key => {
+          message = message.replace(new RegExp(`\\{${key}\\}`, 'g'), account[key]);
+        });
+      }
+      
+      if (message) {
+        messages.push({ phone: account.telefono, message });
+      }
+    }
+    
+    // Enviar mensajes en lote
+    const results = await whatsappService.sendBulkMessages(messages, delayMs || 2000);
+    return res.json({ 
+      total: notifications.length,
+      sent: results.filter(r => r.success).length,
+      failed: results.filter(r => !r.success).length,
+      results 
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
 // Railway requiere escuchar en 0.0.0.0 para aceptar conexiones externas
 const HOST = process.env.HOST || '0.0.0.0';
 app.listen(PORT, HOST, ()=> {
@@ -292,6 +451,11 @@ app.listen(PORT, HOST, ()=> {
   console.log(`🔗 Supabase URL: ${SUPABASE_URL}`);
   console.log(`🔑 SUPABASE_ANON_KEY configured: ${!!SUPABASE_ANON_KEY}`);
   console.log(`🔐 SUPABASE_SERVICE_ROLE_KEY configured: ${!!SUPABASE_SERVICE_ROLE_KEY}`);
-  console.log(`� Auth method: JWT Bearer Token`);
+  console.log(`📱 WhatsApp Service: ${whatsappService.enabled ? '✅ ENABLED' : '⚠️  DISABLED'}`);
+  if (whatsappService.enabled) {
+    console.log(`   WAHA URL: ${whatsappService.wahaUrl}`);
+    console.log(`   Session: ${whatsappService.wahaSession}`);
+  }
+  console.log(`🔒 Auth method: JWT Bearer Token`);
   console.log('='.repeat(60));
 });
