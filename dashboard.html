@@ -2125,7 +2125,8 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
       sendBtn.innerHTML = '📤 Enviando...';
 
       try {
-        const jwt = localStorage.getItem('jwt');
+        const jwt = await getAuthToken();
+        if (!jwt) throw new Error('No se pudo obtener el token de autenticación');
         
         // Check rate limit first
         const rateLimitResponse = await fetch(`${ADMIN_BASE_URL}/admin/automation/rate-limit`, {
@@ -2203,7 +2204,7 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
         
         // Track failed notification
         try {
-          const jwt = localStorage.getItem('jwt');
+          const jwt = await getAuthToken();
           await fetch(`${ADMIN_BASE_URL}/admin/automation/track`, {
             method: 'POST',
             headers: {
@@ -2261,6 +2262,20 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
     let currentAutomationConfig = null;
     let automationPanelExpanded = true;
 
+    // Helper function to get Supabase auth token
+    async function getAuthToken() {
+      try {
+        const client = await window.__auth.ensureClient();
+        if (!client) return null;
+        
+        const { data: sessionData } = await client.auth.getSession();
+        return sessionData?.session?.access_token || null;
+      } catch (err) {
+        console.error('Error getting auth token:', err);
+        return null;
+      }
+    }
+
     // Toggle panel visibility
     function toggleAutomationPanel() {
       automationPanelExpanded = !automationPanelExpanded;
@@ -2279,10 +2294,12 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
     // Load automation configuration
     async function loadAutomationConfig() {
       try {
-        const jwt = localStorage.getItem('jwt');
+        const token = await getAuthToken();
+        if (!token) throw new Error('No se pudo obtener el token de autenticación');
+        
         const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/config`, {
           headers: {
-            'Authorization': `Bearer ${jwt}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
@@ -2379,7 +2396,8 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
     // Load today's statistics
     async function loadTodayStats() {
       try {
-        const jwt = localStorage.getItem('jwt');
+        const jwt = await getAuthToken();
+        if (!jwt) return;
         const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/stats/today`, {
           headers: {
             'Authorization': `Bearer ${jwt}`,
@@ -2417,7 +2435,8 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
       const reason = prompt('Razón de la pausa (opcional):');
       
       try {
-        const jwt = localStorage.getItem('jwt');
+        const jwt = await getAuthToken();
+        if (!jwt) throw new Error('No autenticado');
         const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/config`, {
           method: 'PUT',
           headers: {
@@ -2443,7 +2462,8 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
     // Resume automation
     async function resumeAutomation() {
       try {
-        const jwt = localStorage.getItem('jwt');
+        const jwt = await getAuthToken();
+        if (!jwt) throw new Error('No autenticado');
         const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/config`, {
           method: 'PUT',
           headers: {
@@ -2472,7 +2492,8 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
       }
 
       try {
-        const jwt = localStorage.getItem('jwt');
+        const jwt = await getAuthToken();
+        if (!jwt) throw new Error('No autenticado');
         const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/config`, {
           method: 'PUT',
           headers: {
@@ -2544,7 +2565,8 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
           }
         };
 
-        const jwt = localStorage.getItem('jwt');
+        const jwt = await getAuthToken();
+        if (!jwt) throw new Error('No autenticado');
         const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/config`, {
           method: 'PUT',
           headers: {
