@@ -2623,39 +2623,62 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
     // Check if user is admin and show automation panel
     async function checkAdminAndShowAutomationPanel() {
       try {
-        const jwt = localStorage.getItem('jwt');
-        if (!jwt) {
-          console.log('No JWT found, skipping admin check');
+        // Usar auth_guard.js para obtener el usuario
+        if (!window.__auth) {
+          console.error('auth_guard.js no está cargado');
+          return;
+        }
+
+        const user = await window.__auth.getSessionUser();
+        if (!user) {
+          console.log('No hay usuario autenticado');
+          return;
+        }
+
+        console.log('Usuario autenticado:', user.email || user.id);
+
+        // Obtener el token de sesión para hacer la petición al servidor
+        const client = await window.__auth.ensureClient();
+        if (!client) {
+          console.error('No se pudo obtener el cliente de Supabase');
+          return;
+        }
+
+        const { data: sessionData } = await client.auth.getSession();
+        const token = sessionData?.session?.access_token;
+
+        if (!token) {
+          console.log('No se pudo obtener el token de sesión');
           return;
         }
 
         // Verificar con el servidor backend si el usuario es admin
         const response = await fetch(`${ADMIN_BASE_URL}/admin/verify`, {
           headers: {
-            'Authorization': `Bearer ${jwt}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
 
         if (!response.ok) {
-          console.log('Not an admin user');
+          console.log('Usuario no es admin o error en verificación');
           return;
         }
 
         const result = await response.json();
         
         if (result.isAdmin) {
-          console.log('✅ User is admin, showing automation panel');
+          console.log('✅ Usuario es admin, mostrando panel de automatización');
           document.getElementById('automation-config-panel').classList.remove('hidden');
           await loadAutomationConfig();
           
           // Actualizar estadísticas cada minuto
           setInterval(loadTodayStats, 60000);
         } else {
-          console.log('User is not admin');
+          console.log('Usuario no es admin');
         }
       } catch (err) {
-        console.error('Error checking admin status:', err);
+        console.error('Error verificando estado de admin:', err);
       }
     }
 
