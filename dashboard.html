@@ -2521,36 +2521,79 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
           ? `<span class="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">${msg.servicio}</span>` 
           : '';
         
-        return `
-          <div class="bg-black/30 hover:bg-black/40 rounded-lg p-3 border border-white/10 transition">
-            <div class="flex items-start justify-between mb-2">
-              <div class="flex items-center gap-2 flex-1">
-                <span class="text-2xl">${typeInfo.emoji}</span>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <span class="font-semibold text-sm text-white">${msg.propietario}</span>
-                    ${servicioTag}
+        // Manejar mensajes agrupados
+        if (msg.is_grouped) {
+          // Formato para múltiples cuentas
+          const correosDisplay = msg.correos && msg.correos.length > 0
+            ? msg.correos.slice(0, 2).join(', ') + (msg.correos.length > 2 ? `, +${msg.correos.length - 2} más` : '')
+            : '';
+          
+          return `
+            <div class="bg-gradient-to-br from-cyan-900/20 to-blue-900/20 hover:from-cyan-900/30 hover:to-blue-900/30 rounded-lg p-3 border border-cyan-500/30 transition">
+              <div class="flex items-start justify-between mb-2">
+                <div class="flex items-center gap-2 flex-1">
+                  <span class="text-2xl">${typeInfo.emoji}</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="font-semibold text-sm text-white">${msg.propietario}</span>
+                      ${servicioTag}
+                      <span class="px-2 py-0.5 bg-cyan-500/30 text-cyan-200 rounded-full text-xs font-bold">
+                        📦 ${msg.account_count} cuentas
+                      </span>
+                    </div>
+                    <div class="text-xs text-${typeInfo.color}-300">${typeInfo.text}</div>
+                    ${correosDisplay ? `<div class="text-xs text-white/50 truncate mt-0.5">📧 ${correosDisplay}</div>` : ''}
                   </div>
-                  <div class="text-xs text-${typeInfo.color}-300">${typeInfo.text}</div>
-                  ${msg.correo ? `<div class="text-xs text-white/50 truncate">📧 ${msg.correo}</div>` : ''}
+                </div>
+                <div class="text-right ml-2">
+                  <div id="countdown-${index}" class="text-lg font-mono font-bold text-cyan-300 whitespace-nowrap">
+                    --:--:--
+                  </div>
+                  <div class="text-xs text-white/50">hasta envío</div>
+                  <div class="text-xs text-cyan-400/70 mt-1">🕐 ${scheduledTimeStr}</div>
                 </div>
               </div>
-              <div class="text-right ml-2">
-                <div id="countdown-${index}" class="text-lg font-mono font-bold text-cyan-300 whitespace-nowrap">
-                  --:--:--
-                </div>
-                <div class="text-xs text-white/50">hasta envío</div>
-                <div class="text-xs text-cyan-400/70 mt-1">🕐 ${scheduledTimeStr}</div>
+              <div class="flex items-center gap-3 text-xs text-white/60 flex-wrap">
+                <span class="flex items-center gap-1">📞 ${msg.telefono}</span>
+                <span class="flex items-center gap-1 font-semibold text-green-300">💰 Total: $${msg.precio}</span>
+                <span class="flex items-center gap-1">📅 Pago: ${fechaPagoStr}</span>
+                ${fechaCaducidadStr ? `<span class="flex items-center gap-1">⏳ Caduca: ${fechaCaducidadStr}</span>` : ''}
               </div>
             </div>
-            <div class="flex items-center gap-3 text-xs text-white/60 flex-wrap">
-              <span class="flex items-center gap-1">📞 ${msg.telefono}</span>
-              <span class="flex items-center gap-1">💰 $${msg.precio}</span>
-              <span class="flex items-center gap-1">📅 Pago: ${fechaPagoStr}</span>
-              ${fechaCaducidadStr ? `<span class="flex items-center gap-1">⏳ Caduca: ${fechaCaducidadStr}</span>` : ''}
+          `;
+        } else {
+          // Formato para una sola cuenta (formato normal)
+          return `
+            <div class="bg-black/30 hover:bg-black/40 rounded-lg p-3 border border-white/10 transition">
+              <div class="flex items-start justify-between mb-2">
+                <div class="flex items-center gap-2 flex-1">
+                  <span class="text-2xl">${typeInfo.emoji}</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="font-semibold text-sm text-white">${msg.propietario}</span>
+                      ${servicioTag}
+                    </div>
+                    <div class="text-xs text-${typeInfo.color}-300">${typeInfo.text}</div>
+                    ${msg.correo ? `<div class="text-xs text-white/50 truncate">📧 ${msg.correo}</div>` : ''}
+                  </div>
+                </div>
+                <div class="text-right ml-2">
+                  <div id="countdown-${index}" class="text-lg font-mono font-bold text-cyan-300 whitespace-nowrap">
+                    --:--:--
+                  </div>
+                  <div class="text-xs text-white/50">hasta envío</div>
+                  <div class="text-xs text-cyan-400/70 mt-1">🕐 ${scheduledTimeStr}</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 text-xs text-white/60 flex-wrap">
+                <span class="flex items-center gap-1">📞 ${msg.telefono}</span>
+                <span class="flex items-center gap-1">💰 $${msg.precio}</span>
+                <span class="flex items-center gap-1">📅 Pago: ${fechaPagoStr}</span>
+                ${fechaCaducidadStr ? `<span class="flex items-center gap-1">⏳ Caduca: ${fechaCaducidadStr}</span>` : ''}
+              </div>
             </div>
-          </div>
-        `;
+          `;
+        }
       }).join('');
 
       // Iniciar contadores

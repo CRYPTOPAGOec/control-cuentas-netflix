@@ -165,14 +165,14 @@
         <div class="flex items-center justify-between mb-4">
           <div>
             <h2 class="font-semibold">📬 Centro de Notificaciones Pendientes</h2>
-            <p class="text-xs muted mt-1">Envía notificaciones de forma rápida y organizada</p>
+            <p class="text-xs muted mt-1">Envío automático vía WAHA - sin abrir ventanas adicionales</p>
           </div>
           <div class="flex gap-2">
             <button id="btn-refresh-pending" onclick="loadPendingNotifications()" class="px-3 py-2 border border-white/6 muted hover:bg-white/5 rounded text-xs">
               🔄 Actualizar
             </button>
             <button id="btn-send-all-sequential" onclick="sendAllSequential()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 rounded text-xs text-white">
-              📱 Enviar Todo
+              � Enviar Todo (WAHA)
             </button>
           </div>
         </div>
@@ -1409,7 +1409,7 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
         checkboxes.forEach(cb => cb.checked = !allChecked);
       };
 
-      // Enviar una notificación individual
+      // Enviar una notificación individual usando WAHA
       window.sendSingleNotification = async function(index) {
         const notif = pendingNotifications[index];
         if (!notif) return;
@@ -1469,17 +1469,85 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
         let phone = notif.clientPhone.trim().replace(/[\s-()]/g, '');
         if (!phone.startsWith('+')) phone = '+' + phone;
 
-        // Abrir WhatsApp
-        const encodedMessage = encodeURIComponent(message);
-        const whatsappUrl = `https://wa.me/${phone.replace('+', '')}?text=${encodedMessage}`;
-        window.open(whatsappUrl, '_blank');
+        try {
+          // Obtener token de autenticación
+          const token = await getAuthToken();
+          if (!token) {
+            throw new Error('No se pudo obtener el token de autenticación');
+          }
 
-        // Marcar como enviada (desmarcar checkbox)
-        const checkbox = document.getElementById(`notif-${index}`);
-        if (checkbox) checkbox.checked = false;
+          // Verificar rate limit
+          const rateLimitResponse = await fetch(`${window.ADMIN_BASE_URL}/admin/automation/rate-limit`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (rateLimitResponse.ok) {
+            const rateLimit = await rateLimitResponse.json();
+            if (!rateLimit.canSend) {
+              throw new Error(`Límite de envíos alcanzado: ${rateLimit.currentCount}/${rateLimit.limit} por hora. Espera unos minutos.`);
+            }
+          }
+
+          // Enviar usando WAHA API
+          const response = await fetch(`${window.ADMIN_BASE_URL}/admin/whatsapp/send-custom`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              phone: phone,
+              template: message
+            })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error al enviar mensaje');
+          }
+
+          const result = await response.json();
+
+          if (result.success) {
+            // Mostrar confirmación
+            const successMsg = document.createElement('div');
+            successMsg.className = 'fixed top-6 right-6 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+            successMsg.innerHTML = `✅ Mensaje enviado a ${notif.clientName || 'Cliente'}`;
+            document.body.appendChild(successMsg);
+            
+            setTimeout(() => {
+              successMsg.remove();
+            }, 3000);
+
+            // Marcar como enviada (desmarcar checkbox)
+            const checkbox = document.getElementById(`notif-${index}`);
+            if (checkbox) checkbox.checked = false;
+
+            // Recargar notificaciones
+            setTimeout(() => loadPendingNotifications(), 1000);
+          } else {
+            throw new Error(result.error || 'Error desconocido al enviar');
+          }
+
+        } catch (err) {
+          console.error('Error sending WhatsApp notification:', err);
+          
+          // Mostrar error
+          const errorMsg = document.createElement('div');
+          errorMsg.className = 'fixed top-6 right-6 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+          errorMsg.innerHTML = `❌ Error: ${err.message}`;
+          document.body.appendChild(errorMsg);
+          
+          setTimeout(() => {
+            errorMsg.remove();
+          }, 5000);
+        }
       };
 
-      // Enviar todas las notificaciones seleccionadas de forma secuencial
+      // Enviar todas las notificaciones seleccionadas de forma secuencial usando WAHA
       window.sendAllSequential = async function() {
         const checkboxes = document.querySelectorAll('.notif-checkbox:checked');
         
@@ -1488,7 +1556,7 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
           return;
         }
 
-        if (!confirm(`¿Enviar ${checkboxes.length} notificaciones?\n\nSe abrirán pestañas de WhatsApp Web secuencialmente con un intervalo entre cada una.`)) {
+        if (!confirm(`¿Enviar ${checkboxes.length} notificaciones vía WAHA?\n\nSe enviarán automáticamente sin abrir ventanas adicionales.`)) {
           return;
         }
 
@@ -1504,94 +1572,124 @@ Hemos recibido tu pago de *${'{precio}'}* por el servicio de {servicio}.
 
         const templates = loadMessageTemplates();
         let sent = 0;
+        let failed = 0;
         const total = checkboxes.length;
 
-        for (const checkbox of checkboxes) {
-          if (!isSending) break;
-
-          const index = parseInt(checkbox.id.replace('notif-', ''));
-          const notif = pendingNotifications[index];
-          
-          if (!notif) continue;
-
-          const accounts = notif.accounts;
-          let message = templates[notif.type];
-
-          if (message) {
-            // Si hay múltiples cuentas, construir mensaje agrupado
-            if (accounts.length > 1) {
-              const clientName = notif.clientName || 'Cliente';
-              const totalPrice = accounts.reduce((sum, acc) => sum + (parseFloat(acc.precio) || 0), 0);
-              
-              // Construir lista de cuentas
-              const accountsList = accounts.map((acc, i) => 
-                `${i + 1}. ${acc.correo || 'Sin correo'} - $${acc.precio || 0}`
-              ).join('\n');
-              
-              // Reemplazar variables básicas y eliminar líneas redundantes
-              message = message
-                .replace(/{propietario}/g, clientName)
-                .replace(/{servicio}/g, 'Netflix')
-                .replace(/{fechaPago}/g, formatDate(accounts[0].fechaPago))
-                .replace(/{fechaCaducidad}/g, formatDate(accounts[0].fechaCaducidad))
-                // Eliminar líneas con variables individuales (con o sin emojis)
-                .replace(/^.*Cuenta:.*\{correo\}.*$/gm, '')
-                .replace(/^.*Monto:.*\{precio\}.*$/gm, '')
-                .replace(/\{correo\}/g, '')
-                .replace(/\{precio\}/g, '')
-                .replace(/\n{3,}/g, '\n\n'); // Limpiar líneas vacías múltiples
-              
-              // Agregar información de múltiples cuentas
-              message += `\n\n📋 *Cuentas afectadas (${accounts.length}):*\n${accountsList}\n\n💰 *Total a pagar: $${totalPrice.toFixed(2)}*`;
-            } else {
-              // Mensaje para una sola cuenta
-              const account = accounts[0];
-              message = message
-                .replace(/{propietario}/g, account.propietario || 'Cliente')
-                .replace(/{correo}/g, account.correo || 'Sin correo')
-                .replace(/{servicio}/g, account.servicio || 'Netflix')
-                .replace(/{precio}/g, '$' + (account.precio || 0))
-                .replace(/{fechaPago}/g, formatDate(account.fechaPago))
-                .replace(/{fechaCaducidad}/g, formatDate(account.fechaCaducidad));
-            }
-
-            let phone = notif.clientPhone.trim().replace(/[\s-()]/g, '');
-            if (!phone.startsWith('+')) phone = '+' + phone;
-
-            const encodedMessage = encodeURIComponent(message);
-            const whatsappUrl = `https://wa.me/${phone.replace('+', '')}?text=${encodedMessage}`;
-            
-            // Usar nombre único para cada ventana para evitar reutilización
-            const windowName = `whatsapp_${Date.now()}_${index}`;
-            const newWindow = window.open(whatsappUrl, windowName);
-            
-            // Verificar si la ventana fue bloqueada
-            if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-              console.warn('Popup bloqueado para:', notif.clientName);
-              progressMessage.textContent = `⚠️ Popup bloqueado. Por favor, permite ventanas emergentes`;
-              // Pausar el proceso
-              alert('El navegador bloqueó la apertura de ventanas emergentes.\n\nPor favor:\n1. Permite ventanas emergentes para este sitio\n2. Haz clic en Aceptar para continuar');
-            }
-            
-            checkbox.checked = false;
-            sent++;
-
-            progressText.textContent = `${sent}/${total}`;
-            progressBar.style.width = `${(sent / total) * 100}%`;
-            const accountsInfo = accounts.length > 1 ? `${accounts.length} cuentas` : accounts[0].correo || 'Sin correo';
-            progressMessage.textContent = `Enviado a ${notif.clientName || 'Cliente'} (${accountsInfo})... Siguiente en ${interval/1000}s`;
-            
-            // Esperar el intervalo antes del siguiente envío
-            if (sent < total) {
-              await new Promise(resolve => setTimeout(resolve, interval));
-            }
-          } else {
-            console.warn(`Plantilla no encontrada para tipo: ${notif.type}. Saltando notificación.`);
-            progressMessage.textContent = `⚠️ Plantilla no encontrada para ${notif.clientName || 'Cliente'}`;
+        try {
+          // Obtener token de autenticación
+          const token = await getAuthToken();
+          if (!token) {
+            throw new Error('No se pudo obtener el token de autenticación');
           }
+
+          for (const checkbox of checkboxes) {
+            if (!isSending) break;
+
+            const index = parseInt(checkbox.id.replace('notif-', ''));
+            const notif = pendingNotifications[index];
+            
+            if (!notif) continue;
+
+            const accounts = notif.accounts;
+            let message = templates[notif.type];
+
+            if (message) {
+              // Si hay múltiples cuentas, construir mensaje agrupado
+              if (accounts.length > 1) {
+                const clientName = notif.clientName || 'Cliente';
+                const totalPrice = accounts.reduce((sum, acc) => sum + (parseFloat(acc.precio) || 0), 0);
+                
+                // Construir lista de cuentas
+                const accountsList = accounts.map((acc, i) => 
+                  `${i + 1}. ${acc.correo || 'Sin correo'} - $${acc.precio || 0}`
+                ).join('\n');
+                
+                // Reemplazar variables básicas y eliminar líneas redundantes
+                message = message
+                  .replace(/{propietario}/g, clientName)
+                  .replace(/{servicio}/g, 'Netflix')
+                  .replace(/{fechaPago}/g, formatDate(accounts[0].fechaPago))
+                  .replace(/{fechaCaducidad}/g, formatDate(accounts[0].fechaCaducidad))
+                  // Eliminar líneas con variables individuales (con o sin emojis)
+                  .replace(/^.*Cuenta:.*\{correo\}.*$/gm, '')
+                  .replace(/^.*Monto:.*\{precio\}.*$/gm, '')
+                  .replace(/\{correo\}/g, '')
+                  .replace(/\{precio\}/g, '')
+                  .replace(/\n{3,}/g, '\n\n'); // Limpiar líneas vacías múltiples
+                
+                // Agregar información de múltiples cuentas
+                message += `\n\n📋 *Cuentas afectadas (${accounts.length}):*\n${accountsList}\n\n💰 *Total a pagar: $${totalPrice.toFixed(2)}*`;
+              } else {
+                // Mensaje para una sola cuenta
+                const account = accounts[0];
+                message = message
+                  .replace(/{propietario}/g, account.propietario || 'Cliente')
+                  .replace(/{correo}/g, account.correo || 'Sin correo')
+                  .replace(/{servicio}/g, account.servicio || 'Netflix')
+                  .replace(/{precio}/g, '$' + (account.precio || 0))
+                  .replace(/{fechaPago}/g, formatDate(account.fechaPago))
+                  .replace(/{fechaCaducidad}/g, formatDate(account.fechaCaducidad));
+              }
+
+              let phone = notif.clientPhone.trim().replace(/[\s-()]/g, '');
+              if (!phone.startsWith('+')) phone = '+' + phone;
+
+              try {
+                // Enviar usando WAHA API
+                const response = await fetch(`${window.ADMIN_BASE_URL}/admin/whatsapp/send-custom`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    phone: phone,
+                    template: message
+                  })
+                });
+
+                if (!response.ok) {
+                  const errorData = await response.json();
+                  throw new Error(errorData.error || 'Error al enviar mensaje');
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                  checkbox.checked = false;
+                  sent++;
+
+                  progressText.textContent = `${sent}/${total}`;
+                  progressBar.style.width = `${(sent / total) * 100}%`;
+                  const accountsInfo = accounts.length > 1 ? `${accounts.length} cuentas` : accounts[0].correo || 'Sin correo';
+                  progressMessage.textContent = `✅ Enviado a ${notif.clientName || 'Cliente'} (${accountsInfo})${sent < total ? '... Siguiente en ' + interval/1000 + 's' : ''}`;
+                } else {
+                  throw new Error(result.error || 'Error desconocido');
+                }
+              } catch (sendError) {
+                failed++;
+                console.error('Error enviando a', notif.clientName, ':', sendError);
+                progressMessage.textContent = `❌ Error enviando a ${notif.clientName || 'Cliente'}: ${sendError.message}`;
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
+              
+              // Esperar el intervalo antes del siguiente envío
+              if (sent + failed < total) {
+                await new Promise(resolve => setTimeout(resolve, interval));
+              }
+            } else {
+              console.warn(`Plantilla no encontrada para tipo: ${notif.type}. Saltando notificación.`);
+              progressMessage.textContent = `⚠️ Plantilla no encontrada para ${notif.clientName || 'Cliente'}`;
+              failed++;
+            }
+          }
+
+          progressMessage.textContent = `✅ Proceso completado: ${sent} enviados, ${failed} fallidos`;
+        } catch (err) {
+          console.error('Error en envío masivo:', err);
+          progressMessage.textContent = `❌ Error: ${err.message}`;
         }
 
-        progressMessage.textContent = `✅ Proceso completado: ${sent} notificaciones enviadas`;
         document.getElementById('btn-send-all-sequential').disabled = false;
         isSending = false;
 

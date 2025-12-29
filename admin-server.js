@@ -796,22 +796,91 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
       }
     }
 
+    // Agrupar mensajes por teléfono + propietario + tipo de notificación
+    const grouped = new Map();
+    
+    for (const msg of messages) {
+      const clientPhone = (msg.telefono || '').trim().toLowerCase();
+      const clientName = (msg.propietario || '').trim().toLowerCase();
+      const clientKey = `${clientPhone}_${clientName}_${msg.notification_type}`;
+      
+      if (!grouped.has(clientKey)) {
+        grouped.set(clientKey, {
+          propietario: msg.propietario,
+          telefono: msg.telefono,
+          notification_type: msg.notification_type,
+          priority: msg.priority,
+          scheduled_time: msg.scheduled_time,
+          days_until: msg.days_until,
+          seconds_until: msg.seconds_until,
+          fecha_pago: msg.fecha_pago,
+          servicio: msg.servicio,
+          accounts: [],
+          is_grouped: false
+        });
+      }
+      
+      grouped.get(clientKey).accounts.push({
+        id: msg.id,
+        correo: msg.correo,
+        precio: msg.precio,
+        fecha_caducidad: msg.fecha_caducidad
+      });
+    }
+    
+    // Convertir a array y marcar grupos
+    const groupedMessages = Array.from(grouped.values()).map(group => {
+      const totalPrecio = group.accounts.reduce((sum, acc) => sum + (acc.precio || 0), 0);
+      const accountCount = group.accounts.length;
+      
+      // Si hay múltiples cuentas, es un grupo
+      if (accountCount > 1) {
+        return {
+          ...group,
+          is_grouped: true,
+          account_count: accountCount,
+          precio: totalPrecio,
+          correos: group.accounts.map(a => a.correo).filter(Boolean),
+          fecha_caducidad: group.accounts[0].fecha_caducidad // Usar la primera fecha
+        };
+      } else {
+        // Una sola cuenta, formato normal
+        return {
+          id: group.accounts[0].id,
+          propietario: group.propietario,
+          telefono: group.telefono,
+          correo: group.accounts[0].correo,
+          notification_type: group.notification_type,
+          priority: group.priority,
+          scheduled_time: group.scheduled_time,
+          days_until: group.days_until,
+          seconds_until: group.seconds_until,
+          fecha_pago: group.fecha_pago,
+          fecha_caducidad: group.accounts[0].fecha_caducidad,
+          precio: group.accounts[0].precio,
+          servicio: group.servicio,
+          is_grouped: false
+        };
+      }
+    });
+    
     // Ordenar por prioridad (mayor prioridad = mayor número, enviar primero)
-    messages.sort((a, b) => {
+    groupedMessages.sort((a, b) => {
       if (a.priority !== b.priority) return b.priority - a.priority; // Mayor prioridad primero
       return a.seconds_until - b.seconds_until; // Luego por tiempo
     });
 
     // Limitar a los primeros 15
-    const limitedMessages = messages.slice(0, 15);
+    const limitedMessages = groupedMessages.slice(0, 15);
 
-    console.log(`✅ Mostrando ${limitedMessages.length} mensajes programados de ${messages.length} totales (${skippedCount} omitidos por tipo deshabilitado)`);
+    console.log(`✅ Mostrando ${limitedMessages.length} mensajes programados (${groupedMessages.length} grupos de ${messages.length} originales, ${skippedCount} omitidos)`);
 
     return res.json({ 
       messages: limitedMessages, 
       status: 'active', 
       enabled_types: Object.keys(enabledTypes),
       total_found: messages.length,
+      total_groups: groupedMessages.length,
       total_skipped: skippedCount,
       updated_at: new Date().toISOString() 
     });
