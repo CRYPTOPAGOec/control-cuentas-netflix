@@ -632,8 +632,10 @@ app.get('/admin/automation/stats/today', verifyAdminAuth, async (req, res) => {
 // Get upcoming scheduled messages
 app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res) => {
   try {
-    // Verificar si la automatización está activa
-    let isActive = true;
+    // Obtener configuración de automatización
+    let activeConfig = null;
+    let enabledTypes = {};
+    
     try {
       const { data: config } = await supabaseAdmin
         .from('automation_config')
@@ -644,15 +646,40 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
       if (config?.status !== 'active') {
         return res.json({ messages: [], status: config?.status || 'inactive' });
       }
+
+      activeConfig = config.config;
+      
+      // Extraer tipos de notificación habilitados
+      if (activeConfig?.notificationTypes) {
+        enabledTypes = Object.fromEntries(
+          Object.entries(activeConfig.notificationTypes)
+            .filter(([_, typeConfig]) => typeConfig.enabled === true)
+            .map(([key, _]) => [key, true])
+        );
+      }
+      
+      console.log('Tipos de notificación habilitados:', Object.keys(enabledTypes));
     } catch (configError) {
-      console.log('automation_config no disponible, asumiendo activo');
+      console.log('automation_config no disponible, mostrando todas las notificaciones');
+      // Si no hay config, permitir todos los tipos
+      enabledTypes = {
+        '3_days_before': true,
+        '2_days_before': true,
+        '1_day_before': true,
+        'due_today': true,
+        'overdue': true,
+        'renewal': true
+      };
+    }
+
+    // Si no hay tipos habilitados, devolver vacío
+    if (Object.keys(enabledTypes).length === 0) {
+      return res.json({ messages: [], status: 'active', note: 'No hay tipos de notificación habilitados' });
     }
 
     // Obtener cuentas próximas a vencer
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const in7Days = new Date(today);
-    in7Days.setDate(in7Days.getDate() + 7);
 
     const { data: accounts, error } = await supabaseAdmin
       .from('netflix_accounts')
@@ -669,6 +696,16 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
       return res.json({ messages: [], status: 'active', updated_at: new Date().toISOString() });
     }
 
+    // Mapeo de tipos de notificación a claves de configuración
+    const typeMapping = {
+      'pago_3dias': '3_days_before',
+      'pago_2dias': '2_days_before',
+      'pago_1dia': '1_day_before',
+      'pago_hoy': 'due_today',
+      'pago_atrasado': 'overdue',
+      'renovacion_proxima': 'renewal'
+    };
+
     // Filtrar y calcular tipo de notificación para cada cuenta
     const messages = [];
     
@@ -684,37 +721,44 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
       if (diffDays > 7) continue;
 
       let notificationType = null;
+      let configKey = null;
       let priority = 4;
       let scheduledTime = new Date(paymentDate);
       
       if (diffDays === 3) {
         notificationType = 'pago_3dias';
+        configKey = '3_days_before';
         priority = 3;
         scheduledTime.setHours(9, 0, 0, 0);
       } else if (diffDays === 2) {
         notificationType = 'pago_2dias';
+        configKey = '2_days_before';
         priority = 4;
         scheduledTime.setHours(10, 0, 0, 0);
       } else if (diffDays === 1) {
         notificationType = 'pago_1dia';
+        configKey = '1_day_before';
         priority = 5;
         scheduledTime.setHours(11, 0, 0, 0);
       } else if (diffDays === 0) {
         notificationType = 'pago_hoy';
+        configKey = 'due_today';
         priority = 6;
         scheduledTime.setHours(9, 0, 0, 0);
       } else if (diffDays < 0) {
         notificationType = 'pago_atrasado';
+        configKey = 'overdue';
         priority = 7;
         scheduledTime = new Date();
       } else if (diffDays <= 7) {
         notificationType = 'renovacion_proxima';
+        configKey = 'renewal';
         priority = 2;
         scheduledTime.setHours(9, 0, 0, 0);
       }
 
-      // Solo agregar si tiene un tipo de notificación válido
-      if (notificationType) {
+      // Solo agregar si el tipo de notificación está habilitado
+      if (notificationType && configKey && enabledTypes[configKey]) {
         messages.push({
           id: account.id,
           propietario: account.propietario || 'Sin nombre',
@@ -741,7 +785,14 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
     // Limitar a los primeros 15
     const limitedMessages = messages.slice(0, 15);
 
-    return res.json({ messages: limitedMessages, status: 'active', updated_at: new Date().toISOString() });
+    console.log(`Mostrando ${limitedMessages.length} mensajes programados de ${messages.length} totales`);
+
+    return res.json({ 
+      messages: limitedMessages, 
+      status: 'active', 
+      enabled_types: Object.keys(enabledTypes),
+      updated_at: new Date().toISOString() 
+    });
   } catch (err) {
     console.error('Error fetching upcoming messages:', err);
     return res.status(500).json({ error: String(err), message: err.message });
