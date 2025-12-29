@@ -575,17 +575,54 @@ app.get('/admin/automation/logs', verifyAdminAuth, async (req, res) => {
 // Get today's notification statistics
 app.get('/admin/automation/stats/today', verifyAdminAuth, async (req, res) => {
   try {
-    const { data, error } = await supabaseAdmin
-      .rpc('get_today_notification_stats');
+    // Intentar usar la función RPC si existe
+    try {
+      const { data, error } = await supabaseAdmin
+        .rpc('get_today_notification_stats');
+
+      if (!error && data) {
+        return res.json(data[0] || {
+          total_sent: 0,
+          total_failed: 0,
+          total_pending: 0,
+          by_type: {}
+        });
+      }
+    } catch (rpcError) {
+      console.log('RPC function not available, using fallback query');
+    }
+
+    // Fallback: consulta directa si la función RPC no existe
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const { data: tracking, error } = await supabaseAdmin
+      .from('notification_tracking')
+      .select('success, notification_type')
+      .gte('sent_at', today.toISOString());
 
     if (error) throw error;
 
-    return res.json(data[0] || {
-      total_sent: 0,
-      total_failed: 0,
+    const stats = {
+      total_sent: tracking?.filter(t => t.success).length || 0,
+      total_failed: tracking?.filter(t => !t.success).length || 0,
       total_pending: 0,
       by_type: {}
+    };
+
+    // Agrupar por tipo
+    tracking?.forEach(t => {
+      if (!stats.by_type[t.notification_type]) {
+        stats.by_type[t.notification_type] = { sent: 0, failed: 0 };
+      }
+      if (t.success) {
+        stats.by_type[t.notification_type].sent++;
+      } else {
+        stats.by_type[t.notification_type].failed++;
+      }
     });
+
+    return res.json(stats);
   } catch (err) {
     console.error('Error fetching today stats:', err);
     return res.status(500).json({ error: String(err) });
