@@ -632,14 +632,20 @@ app.get('/admin/automation/stats/today', verifyAdminAuth, async (req, res) => {
 // Get upcoming scheduled messages
 app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res) => {
   try {
-    const { data: config } = await supabaseAdmin
-      .from('automation_config')
-      .select('config, status')
-      .eq('id', '00000000-0000-0000-0000-000000000001')
-      .single();
+    // Verificar si la automatización está activa
+    let isActive = true;
+    try {
+      const { data: config } = await supabaseAdmin
+        .from('automation_config')
+        .select('config, status')
+        .limit(1)
+        .single();
 
-    if (config?.status !== 'active') {
-      return res.json({ messages: [], status: config?.status || 'inactive' });
+      if (config?.status !== 'active') {
+        return res.json({ messages: [], status: config?.status || 'inactive' });
+      }
+    } catch (configError) {
+      console.log('automation_config no disponible, asumiendo activo');
     }
 
     // Obtener cuentas próximas a vencer
@@ -656,10 +662,17 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
       .order('fecha_pago', { ascending: true })
       .limit(10);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error querying cuentas:', error);
+      return res.json({ messages: [], status: 'error', error: error.message });
+    }
+
+    if (!accounts || accounts.length === 0) {
+      return res.json({ messages: [], status: 'active', updated_at: new Date().toISOString() });
+    }
 
     // Calcular tipo de notificación y tiempo restante para cada cuenta
-    const messages = accounts?.map(account => {
+    const messages = accounts.map(account => {
       const fechaPago = new Date(account.fecha_pago);
       const diffTime = fechaPago.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -692,19 +705,19 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
 
       return {
         id: account.id,
-        propietario: account.propietario,
+        propietario: account.propietario || 'Sin nombre',
         telefono: account.telefono,
         correo: account.correo,
         fecha_pago: account.fecha_pago,
-        precio: account.precio,
-        servicio: account.servicio,
+        precio: account.precio || 0,
+        servicio: account.servicio || 'Netflix',
         notification_type: notificationType,
         priority: priority,
         scheduled_time: scheduledTime.toISOString(),
         days_until: diffDays,
         seconds_until: Math.max(0, Math.floor((scheduledTime.getTime() - Date.now()) / 1000))
       };
-    }) || [];
+    });
 
     // Ordenar por prioridad y tiempo
     messages.sort((a, b) => {
@@ -715,7 +728,7 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
     return res.json({ messages, status: 'active', updated_at: new Date().toISOString() });
   } catch (err) {
     console.error('Error fetching upcoming messages:', err);
-    return res.status(500).json({ error: String(err) });
+    return res.status(500).json({ error: String(err), message: err.message });
   }
 });
 
