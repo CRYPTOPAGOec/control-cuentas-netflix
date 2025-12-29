@@ -650,20 +650,18 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
 
     // Obtener cuentas próximas a vencer
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const in7Days = new Date(today);
     in7Days.setDate(in7Days.getDate() + 7);
 
     const { data: accounts, error } = await supabaseAdmin
-      .from('cuentas')
-      .select('id, propietario, telefono, correo, fecha_pago, precio, servicio')
-      .gte('fecha_pago', today.toISOString().split('T')[0])
-      .lte('fecha_pago', in7Days.toISOString().split('T')[0])
+      .from('netflix_accounts')
+      .select('id, propietario, telefono, correo, fecha_pago, fecha_caducidad, precio, servicio')
       .not('telefono', 'is', null)
-      .order('fecha_pago', { ascending: true })
-      .limit(10);
+      .order('fecha_pago', { ascending: true });
 
     if (error) {
-      console.error('Error querying cuentas:', error);
+      console.error('Error querying netflix_accounts:', error);
       return res.json({ messages: [], status: 'error', error: error.message });
     }
 
@@ -671,61 +669,79 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
       return res.json({ messages: [], status: 'active', updated_at: new Date().toISOString() });
     }
 
-    // Calcular tipo de notificación y tiempo restante para cada cuenta
-    const messages = accounts.map(account => {
-      const fechaPago = new Date(account.fecha_pago);
-      const diffTime = fechaPago.getTime() - today.getTime();
+    // Filtrar y calcular tipo de notificación para cada cuenta
+    const messages = [];
+    
+    for (const account of accounts) {
+      // Saltar cuentas sin fecha_pago o sin teléfono
+      if (!account.fecha_pago || !account.telefono) continue;
+
+      const paymentDate = new Date(account.fecha_pago + 'T00:00:00');
+      const diffTime = paymentDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      let notificationType = 'renovacion_proxima';
+      // Solo incluir cuentas que vencen en los próximos 7 días o están vencidas
+      if (diffDays > 7) continue;
+
+      let notificationType = null;
       let priority = 4;
-      let scheduledTime = new Date(fechaPago);
+      let scheduledTime = new Date(paymentDate);
       
       if (diffDays === 3) {
         notificationType = 'pago_3dias';
         priority = 3;
-        scheduledTime.setHours(9, 0, 0, 0); // 9 AM del día -3
+        scheduledTime.setHours(9, 0, 0, 0);
       } else if (diffDays === 2) {
         notificationType = 'pago_2dias';
-        priority = 3;
-        scheduledTime.setHours(10, 0, 0, 0); // 10 AM del día -2
+        priority = 4;
+        scheduledTime.setHours(10, 0, 0, 0);
       } else if (diffDays === 1) {
         notificationType = 'pago_1dia';
-        priority = 2;
-        scheduledTime.setHours(11, 0, 0, 0); // 11 AM del día -1
+        priority = 5;
+        scheduledTime.setHours(11, 0, 0, 0);
       } else if (diffDays === 0) {
         notificationType = 'pago_hoy';
-        priority = 1;
-        scheduledTime.setHours(9, 0, 0, 0); // 9 AM del día de vencimiento
+        priority = 6;
+        scheduledTime.setHours(9, 0, 0, 0);
       } else if (diffDays < 0) {
         notificationType = 'pago_atrasado';
-        priority = 1;
-        scheduledTime = new Date(); // Enviar lo antes posible
+        priority = 7;
+        scheduledTime = new Date();
+      } else if (diffDays <= 7) {
+        notificationType = 'renovacion_proxima';
+        priority = 2;
+        scheduledTime.setHours(9, 0, 0, 0);
       }
 
-      return {
-        id: account.id,
-        propietario: account.propietario || 'Sin nombre',
-        telefono: account.telefono,
-        correo: account.correo,
-        fecha_pago: account.fecha_pago,
-        precio: account.precio || 0,
-        servicio: account.servicio || 'Netflix',
-        notification_type: notificationType,
-        priority: priority,
-        scheduled_time: scheduledTime.toISOString(),
-        days_until: diffDays,
-        seconds_until: Math.max(0, Math.floor((scheduledTime.getTime() - Date.now()) / 1000))
-      };
-    });
+      // Solo agregar si tiene un tipo de notificación válido
+      if (notificationType) {
+        messages.push({
+          id: account.id,
+          propietario: account.propietario || 'Sin nombre',
+          telefono: account.telefono,
+          correo: account.correo,
+          fecha_pago: account.fecha_pago,
+          precio: account.precio || 0,
+          servicio: account.servicio || 'Netflix',
+          notification_type: notificationType,
+          priority: priority,
+          scheduled_time: scheduledTime.toISOString(),
+          days_until: diffDays,
+          seconds_until: Math.max(0, Math.floor((scheduledTime.getTime() - Date.now()) / 1000))
+        });
+      }
+    }
 
-    // Ordenar por prioridad y tiempo
+    // Ordenar por prioridad (mayor prioridad = mayor número, enviar primero)
     messages.sort((a, b) => {
-      if (a.priority !== b.priority) return a.priority - b.priority;
-      return a.seconds_until - b.seconds_until;
+      if (a.priority !== b.priority) return b.priority - a.priority; // Mayor prioridad primero
+      return a.seconds_until - b.seconds_until; // Luego por tiempo
     });
 
-    return res.json({ messages, status: 'active', updated_at: new Date().toISOString() });
+    // Limitar a los primeros 15
+    const limitedMessages = messages.slice(0, 15);
+
+    return res.json({ messages: limitedMessages, status: 'active', updated_at: new Date().toISOString() });
   } catch (err) {
     console.error('Error fetching upcoming messages:', err);
     return res.status(500).json({ error: String(err), message: err.message });
