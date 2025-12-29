@@ -782,6 +782,7 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
           telefono: account.telefono,
           correo: account.correo,
           fecha_pago: account.fecha_pago,
+          fecha_caducidad: account.fecha_caducidad,
           precio: account.precio || 0,
           servicio: account.servicio || 'Netflix',
           notification_type: notificationType,

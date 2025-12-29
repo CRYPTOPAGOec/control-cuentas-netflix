@@ -2495,27 +2495,59 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
 
         const typeInfo = typeLabels[msg.notification_type] || { emoji: '📱', text: 'Notificación', color: 'gray' };
         
+        // Formatear hora programada
+        const scheduledTime = new Date(msg.scheduled_time);
+        const scheduledTimeStr = scheduledTime.toLocaleTimeString('es-EC', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        });
+        
+        // Formatear fechas
+        const fechaPagoStr = new Date(msg.fecha_pago).toLocaleDateString('es-EC', { 
+          day: '2-digit', 
+          month: 'short' 
+        });
+        
+        const fechaCaducidadStr = msg.fecha_caducidad 
+          ? new Date(msg.fecha_caducidad).toLocaleDateString('es-EC', { 
+              day: '2-digit', 
+              month: 'short' 
+            })
+          : null;
+        
+        // Mostrar servicio solo si NO es Netflix
+        const servicioTag = msg.servicio && msg.servicio !== 'Netflix' 
+          ? `<span class="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">${msg.servicio}</span>` 
+          : '';
+        
         return `
           <div class="bg-black/30 hover:bg-black/40 rounded-lg p-3 border border-white/10 transition">
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-2">
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex items-center gap-2 flex-1">
                 <span class="text-2xl">${typeInfo.emoji}</span>
-                <div>
-                  <div class="font-semibold text-sm text-white">${msg.propietario}</div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-semibold text-sm text-white">${msg.propietario}</span>
+                    ${servicioTag}
+                  </div>
                   <div class="text-xs text-${typeInfo.color}-300">${typeInfo.text}</div>
+                  ${msg.correo ? `<div class="text-xs text-white/50 truncate">📧 ${msg.correo}</div>` : ''}
                 </div>
               </div>
-              <div class="text-right">
-                <div id="countdown-${index}" class="text-lg font-mono font-bold text-cyan-300">
+              <div class="text-right ml-2">
+                <div id="countdown-${index}" class="text-lg font-mono font-bold text-cyan-300 whitespace-nowrap">
                   --:--:--
                 </div>
                 <div class="text-xs text-white/50">hasta envío</div>
+                <div class="text-xs text-cyan-400/70 mt-1">🕐 ${scheduledTimeStr}</div>
               </div>
             </div>
-            <div class="flex items-center gap-3 text-xs text-white/60">
-              <span>📞 ${msg.telefono}</span>
-              <span>💰 $${msg.precio}</span>
-              <span>📅 ${new Date(msg.fecha_pago).toLocaleDateString('es-EC')}</span>
+            <div class="flex items-center gap-3 text-xs text-white/60 flex-wrap">
+              <span class="flex items-center gap-1">📞 ${msg.telefono}</span>
+              <span class="flex items-center gap-1">💰 $${msg.precio}</span>
+              <span class="flex items-center gap-1">📅 Pago: ${fechaPagoStr}</span>
+              ${fechaCaducidadStr ? `<span class="flex items-center gap-1">⏳ Caduca: ${fechaCaducidadStr}</span>` : ''}
             </div>
           </div>
         `;
