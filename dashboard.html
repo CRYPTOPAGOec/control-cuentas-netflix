@@ -2432,10 +2432,14 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
         const token = await getAuthToken();
         if (!token) return;
 
-        const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/upcoming-messages`, {
+        // Agregar timestamp para evitar caché
+        const timestamp = new Date().getTime();
+        const response = await fetch(`${ADMIN_BASE_URL}/admin/automation/upcoming-messages?_t=${timestamp}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
           }
         });
 
@@ -2443,6 +2447,12 @@ Si deseas renovar tu servicio, contáctanos para procesar tu renovación.
 
         const data = await response.json();
         upcomingMessages = data.messages || [];
+        
+        console.log(`📊 Próximos mensajes recibidos: ${upcomingMessages.length}`);
+        console.log('Tipos habilitados:', data.enabled_types);
+        console.log('Total encontrados:', data.total_found);
+        console.log('Total omitidos:', data.total_skipped);
+        
         renderUpcomingMessages();
         
       } catch (err) {
