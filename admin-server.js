@@ -637,30 +637,38 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
     let enabledTypes = {};
     
     try {
-      const { data: config } = await supabaseAdmin
+      const { data: configRow } = await supabaseAdmin
         .from('automation_config')
         .select('config, status')
         .limit(1)
         .single();
 
-      if (config?.status !== 'active') {
-        return res.json({ messages: [], status: config?.status || 'inactive' });
+      console.log('📋 Config row obtenida:', JSON.stringify(configRow, null, 2));
+
+      if (configRow?.status !== 'active') {
+        console.log(`⚠️ Sistema no activo: ${configRow?.status}`);
+        return res.json({ messages: [], status: configRow?.status || 'inactive' });
       }
 
-      activeConfig = config.config;
+      activeConfig = configRow.config;
       
       // Extraer tipos de notificación habilitados
       if (activeConfig?.notificationTypes) {
-        enabledTypes = Object.fromEntries(
-          Object.entries(activeConfig.notificationTypes)
-            .filter(([_, typeConfig]) => typeConfig.enabled === true)
-            .map(([key, _]) => [key, true])
-        );
+        const notifTypes = activeConfig.notificationTypes;
+        console.log('🔔 NotificationTypes completo:', JSON.stringify(notifTypes, null, 2));
+        
+        Object.entries(notifTypes).forEach(([key, typeConfig]) => {
+          console.log(`  - ${key}: enabled=${typeConfig.enabled}, priority=${typeConfig.priority}`);
+          if (typeConfig.enabled === true) {
+            enabledTypes[key] = true;
+          }
+        });
       }
       
-      console.log('Tipos de notificación habilitados:', Object.keys(enabledTypes));
+      console.log('✅ Tipos habilitados:', Object.keys(enabledTypes));
     } catch (configError) {
-      console.log('automation_config no disponible, mostrando todas las notificaciones');
+      console.error('❌ Error obteniendo config:', configError);
+      console.log('⚠️ automation_config no disponible, mostrando todas las notificaciones');
       // Si no hay config, permitir todos los tipos
       enabledTypes = {
         '3_days_before': true,
@@ -674,6 +682,7 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
 
     // Si no hay tipos habilitados, devolver vacío
     if (Object.keys(enabledTypes).length === 0) {
+      console.log('⚠️ No hay tipos de notificación habilitados');
       return res.json({ messages: [], status: 'active', note: 'No hay tipos de notificación habilitados' });
     }
 
@@ -696,6 +705,8 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
       return res.json({ messages: [], status: 'active', updated_at: new Date().toISOString() });
     }
 
+    console.log(`📊 Total cuentas con teléfono: ${accounts.length}`);
+
     // Mapeo de tipos de notificación a claves de configuración
     const typeMapping = {
       'pago_3dias': '3_days_before',
@@ -708,6 +719,7 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
 
     // Filtrar y calcular tipo de notificación para cada cuenta
     const messages = [];
+    let skippedCount = 0;
     
     for (const account of accounts) {
       // Saltar cuentas sin fecha_pago o sin teléfono
@@ -757,8 +769,13 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
         scheduledTime.setHours(9, 0, 0, 0);
       }
 
+      // Verificar si el tipo está habilitado
+      const isEnabled = enabledTypes[configKey];
+      
+      console.log(`  👤 ${account.propietario} (${account.fecha_pago}): diffDays=${diffDays}, type=${notificationType}, configKey=${configKey}, enabled=${isEnabled}`);
+
       // Solo agregar si el tipo de notificación está habilitado
-      if (notificationType && configKey && enabledTypes[configKey]) {
+      if (notificationType && configKey && isEnabled) {
         messages.push({
           id: account.id,
           propietario: account.propietario || 'Sin nombre',
@@ -773,6 +790,8 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
           days_until: diffDays,
           seconds_until: Math.max(0, Math.floor((scheduledTime.getTime() - Date.now()) / 1000))
         });
+      } else if (notificationType && configKey) {
+        skippedCount++;
       }
     }
 
@@ -785,16 +804,19 @@ app.get('/admin/automation/upcoming-messages', verifyAdminAuth, async (req, res)
     // Limitar a los primeros 15
     const limitedMessages = messages.slice(0, 15);
 
-    console.log(`Mostrando ${limitedMessages.length} mensajes programados de ${messages.length} totales`);
+    console.log(`✅ Mostrando ${limitedMessages.length} mensajes programados de ${messages.length} totales (${skippedCount} omitidos por tipo deshabilitado)`);
 
     return res.json({ 
       messages: limitedMessages, 
       status: 'active', 
       enabled_types: Object.keys(enabledTypes),
+      total_found: messages.length,
+      total_skipped: skippedCount,
       updated_at: new Date().toISOString() 
     });
   } catch (err) {
-    console.error('Error fetching upcoming messages:', err);
+    console.error('❌ Error fetching upcoming messages:', err);
+    console.error('Stack:', err.stack);
     return res.status(500).json({ error: String(err), message: err.message });
   }
 });
